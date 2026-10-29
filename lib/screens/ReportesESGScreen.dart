@@ -13,7 +13,8 @@ class ReportesESGScreen extends StatelessWidget {
         elevation: 0,
         title: const Text(
           "Panel de Reportes ESG",
-          style: TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.bold),
+          style:
+              TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
@@ -37,12 +38,16 @@ class ReportesESGScreen extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.eco_rounded, color: Color(0xFF22C55E), size: 28),
+                        const Icon(Icons.eco_rounded,
+                            color: Color(0xFF22C55E), size: 28),
                         const SizedBox(width: 10),
                         const Expanded(
                           child: Text(
                             "Métricas de Sostenibilidad Corporate ESG",
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15),
                           ),
                         ),
                       ],
@@ -63,22 +68,30 @@ class ReportesESGScreen extends StatelessWidget {
               const SizedBox(height: 24),
 
               const Text(
-                "Demanda de Viajes por Nave Industrial",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                "Demanda por rutas de movilidad aeroportuaria",
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B)),
               ),
               const SizedBox(height: 12),
 
-              _buildBarChartRow("Nave A (Ensamble)", 0.85, "45 viajes"),
-              _buildBarChartRow("Comedor Central B", 0.95, "58 viajes"),
-              _buildBarChartRow("Nave C (Metalmecánica)", 0.60, "32 viajes"),
-              _buildBarChartRow("Bodega A", 0.40, "21 viajes"),
-              _buildBarChartRow("Administración A", 0.30, "15 viajes"),
+              _buildBarChartRow(
+                  "Santa Catarina → Aeropuerto", 0.88, "48 viajes"),
+              _buildBarChartRow("Centro → Aeropuerto", 0.92, "57 viajes"),
+              _buildBarChartRow("Apodaca → Aeropuerto", 0.66, "34 viajes"),
+              _buildBarChartRow("San Jerónimo → Aeropuerto", 0.48, "27 viajes"),
+              _buildBarChartRow(
+                  "Rutas especiales de acceso", 0.32, "18 viajes"),
 
               const SizedBox(height: 24),
 
               const Text(
-                "Distribución por Tipo de Movilidad",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                "Distribución por tipo de transporte",
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B)),
               ),
               const SizedBox(height: 12),
 
@@ -91,11 +104,14 @@ class ReportesESGScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    _buildMobilityTypeRow("Carrito Eléctrico", "44%", const Color(0xFF22C55E)),
+                    _buildMobilityTypeRow(
+                        "Camión", "41%", const Color(0xFF22C55E)),
                     const Divider(),
-                    _buildMobilityTypeRow("Van Corporativa", "31%", const Color(0xFF3B82F6)),
+                    _buildMobilityTypeRow(
+                        "Van corporativa", "37%", const Color(0xFF3B82F6)),
                     const Divider(),
-                    _buildMobilityTypeRow("E-Scooter & Bicis", "25%", const Color(0xFFF59E0B)),
+                    _buildMobilityTypeRow(
+                        "Carpooling", "22%", const Color(0xFFF59E0B)),
                   ],
                 ),
               ),
@@ -110,8 +126,13 @@ class ReportesESGScreen extends StatelessWidget {
   static Widget _buildESGStat(String val, String label) {
     return Column(
       children: [
-        Text(val, style: const TextStyle(color: Color(0xFF22C55E), fontSize: 22, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+        Text(val,
+            style: const TextStyle(
+                color: Color(0xFF22C55E),
+                fontSize: 22,
+                fontWeight: FontWeight.bold)),
+        Text(label,
+            style: const TextStyle(color: Colors.white70, fontSize: 11)),
       ],
     );
   }
@@ -125,8 +146,14 @@ class ReportesESGScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-              Text(count, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF22C55E))),
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w500)),
+              Text(count,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF22C55E))),
             ],
           ),
           const SizedBox(height: 6),
@@ -142,7 +169,8 @@ class ReportesESGScreen extends StatelessWidget {
     );
   }
 
-  static Widget _buildMobilityTypeRow(String title, String percent, Color color) {
+  static Widget _buildMobilityTypeRow(
+      String title, String percent, Color color) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -150,12 +178,20 @@ class ReportesESGScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              Container(
+                  width: 12,
+                  height: 12,
+                  decoration:
+                      BoxDecoration(color: color, shape: BoxShape.circle)),
               const SizedBox(width: 10),
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+              Text(title,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w500, fontSize: 14)),
             ],
           ),
-          Text(percent, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14)),
+          Text(percent,
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, color: color, fontSize: 14)),
         ],
       ),
     );

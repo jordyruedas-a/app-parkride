@@ -16,7 +16,8 @@ class HistorialViajesScreen extends StatelessWidget {
         elevation: 0,
         title: const Text(
           "Historial de Viajes",
-          style: TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.bold),
+          style:
+              TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
@@ -37,7 +38,7 @@ class HistorialViajesScreen extends StatelessWidget {
                 border: Border.all(color: const Color(0xFFE2E8F0)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
+                    color: Colors.black.withValues(alpha: 0.03),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -48,11 +49,15 @@ class HistorialViajesScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: isCompleted ? const Color(0xFF22C55E).withOpacity(0.12) : Colors.red.withOpacity(0.12),
+                      color: isCompleted
+                          ? const Color(0xFF22C55E).withValues(alpha: 0.12)
+                          : Colors.red.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      isCompleted ? Icons.check_circle_outline : Icons.cancel_outlined,
+                      isCompleted
+                          ? Icons.check_circle_outline
+                          : Icons.cancel_outlined,
                       color: isCompleted ? const Color(0xFF22C55E) : Colors.red,
                     ),
                   ),
@@ -63,16 +68,21 @@ class HistorialViajesScreen extends StatelessWidget {
                       children: [
                         Text(
                           "${trip.origen} ➔ ${trip.destino}",
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1E293B)),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Color(0xFF1E293B)),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           "Conductor: ${trip.conductorNombre} · ${trip.vehiculoInfo}",
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFF64748B)),
                         ),
                         Text(
                           "Fecha: ${trip.timestamp.day}/${trip.timestamp.month}/${trip.timestamp.year}",
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0xFF94A3B8)),
                         ),
                       ],
                     ),
@@ -85,7 +95,9 @@ class HistorialViajesScreen extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
-                          color: isCompleted ? const Color(0xFF22C55E) : Colors.grey,
+                          color: isCompleted
+                              ? const Color(0xFF22C55E)
+                              : Colors.grey,
                         ),
                       ),
                       Text(
@@ -93,7 +105,9 @@ class HistorialViajesScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: isCompleted ? const Color(0xFF22C55E) : Colors.red,
+                          color: isCompleted
+                              ? const Color(0xFF22C55E)
+                              : Colors.red,
                         ),
                       ),
                     ],

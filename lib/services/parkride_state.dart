@@ -1,197 +1,366 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/parkride_models.dart';
+import 'airport_route_service.dart';
+import 'location_service.dart';
+import 'ride_matching_service.dart';
+import 'supabase_service.dart';
 
 class ParkRideState extends ChangeNotifier {
   static final ParkRideState _instance = ParkRideState._internal();
   factory ParkRideState() => _instance;
   ParkRideState._internal();
 
-  // Active User
+  final SupabaseService _supabaseService = SupabaseService();
+
+  // Coordenadas del parque industrial principal (Monterrey, NL)
+  static const LatLng campusCenter = LatLng(25.7252, -100.3131);
+
   UserModel currentUser = UserModel(
-    idEmpleado: 'EMP-84920',
-    nombre: 'Raúl Jiménez Beltrán',
-    correo: 'raul.jimenez@corporativo.com',
-    departamento: 'Tecnología e Innovación',
-    telefono: '+52 81 2345 6789',
-    turno: 'Turno Mañana (07:00 - 15:00)',
+    idEmpleado: 'USR-0001',
+    nombre: 'Usuario ParkRide',
+    correo: 'usuario@empresa.com',
+    departamento: 'Movilidad Corporativa',
+    empresa: 'ParkRide',
+    telefono: '+52 81 0000 0000',
+    turno: 'Turno Matutino',
     saldoCreditos: 450,
     rol: 'Pasajero',
-    hasVehicle: true,
-    vehicleInfo: 'Nissan Leaf 2024 (PRK-2048)',
+    hasVehicle: false,
+    vehicleInfo: null,
   );
 
   // Stats
-  double totalCo2SavingsKg = 2.5;
+  double totalCo2SavingsKg = 0.0;
 
-  // Active Driver Info
   UserModel currentDriver = UserModel(
     idEmpleado: 'CON-10942',
-    nombre: 'Juan Pérez Ochoa',
-    correo: 'juan.perez@corporativo.com',
-    departamento: 'Logística e Instalaciones',
+    nombre: 'Chofer ParkRide',
+    correo: 'conductor@empresa.com',
+    departamento: 'Operación de Transporte',
+    empresa: 'ParkRide',
     telefono: '+52 81 9876 5432',
-    turno: 'Turno Mañana (07:00 - 15:00)',
+    turno: 'Turno Matutino',
     saldoCreditos: 680,
-    rol: 'Conductor',
+    rol: 'Chofer',
     hasVehicle: true,
-    vehicleInfo: 'Carrito Eléctrico #01',
+    vehicleInfo: 'Toyota Corolla 2024 • ABC-1234',
   );
 
-  bool isDriverModeActive = false;
+  bool isDriverOnline = true;
+  String driverStatus =
+      "Disponible"; // "Disponible", "En camino a origen", "En viaje", "Desconectado"
+  LatLng userCurrentLocation = campusCenter;
 
-  // Location Nodes Catalog (Park industrial perimeter nodes)
-  final List<LocationNode> nodes = [
-    LocationNode(id: 'NODE_01', nombre: 'Nave A', zona: 'Zona Norte', xRatio: 0.25, yRatio: 0.25, iconType: 'factory'),
-    LocationNode(id: 'NODE_02', nombre: 'Nave B', zona: 'Zona Norte', xRatio: 0.50, yRatio: 0.20, iconType: 'factory'),
-    LocationNode(id: 'NODE_03', nombre: 'Nave C', zona: 'Zona Este', xRatio: 0.75, yRatio: 0.30, iconType: 'factory'),
-    LocationNode(id: 'NODE_04', nombre: 'Nave D', zona: 'Zona Este', xRatio: 0.80, yRatio: 0.55, iconType: 'factory'),
-    LocationNode(id: 'NODE_05', nombre: 'Nave E', zona: 'Zona Sur', xRatio: 0.65, yRatio: 0.75, iconType: 'factory'),
-    LocationNode(id: 'NODE_06', nombre: 'Nave F', zona: 'Zona Sur', xRatio: 0.35, yRatio: 0.80, iconType: 'factory'),
-    LocationNode(id: 'NODE_07', nombre: 'Comedor B', zona: 'Zona Central', xRatio: 0.45, yRatio: 0.45, iconType: 'restaurant'),
-    LocationNode(id: 'NODE_08', nombre: 'Administración A', zona: 'Zona Central', xRatio: 0.30, yRatio: 0.40, iconType: 'business'),
-    LocationNode(id: 'NODE_09', nombre: 'Administración B', zona: 'Zona Central', xRatio: 0.60, yRatio: 0.40, iconType: 'business'),
-    LocationNode(id: 'NODE_10', nombre: 'Bodega A', zona: 'Zona Oeste', xRatio: 0.15, yRatio: 0.60, iconType: 'warehouse'),
-    LocationNode(id: 'NODE_11', nombre: 'Bodega B', zona: 'Zona Oeste', xRatio: 0.18, yRatio: 0.75, iconType: 'warehouse'),
-    LocationNode(id: 'NODE_12', nombre: 'Bodega C', zona: 'Zona Sur', xRatio: 0.70, yRatio: 0.85, iconType: 'warehouse'),
-  ];
+  List<AirportRoute> get airportRoutes => AirportRouteService.fixedRoutes;
 
-  // Transport options
+  RouteMatch? closestAirportRoute;
+
+  final List<LocationNode> nodes = AirportRouteService.fixedRouteStops;
+
+  // Opciones de transporte: Solo Camión, Van y Carpooling
   final List<TransportOption> availableOptions = [
-    TransportOption(id: 'OPT_01', title: 'Carrito Eléctrico', type: 'Eco-Vehicle', costCredits: 12, etaMinutes: 3, co2SavingsKg: 0.8, iconName: 'electric_car'),
-    TransportOption(id: 'OPT_02', title: 'Van Corporativa', type: 'Van', costCredits: 8, etaMinutes: 5, co2SavingsKg: 0.6, iconName: 'airport_shuttle'),
-    TransportOption(id: 'OPT_03', title: 'E-Scooter', type: 'Micromovilidad', costCredits: 5, etaMinutes: 2, co2SavingsKg: 0.4, iconName: 'two_wheeler'),
-    TransportOption(id: 'OPT_04', title: 'Bicicleta Ecológica', type: 'Micromovilidad', costCredits: 3, etaMinutes: 1, co2SavingsKg: 0.3, iconName: 'pedal_bike'),
-    TransportOption(id: 'OPT_05', title: 'Shuttle Express', type: 'Bus', costCredits: 2, etaMinutes: 8, co2SavingsKg: 0.5, iconName: 'directions_bus'),
+    TransportOption(
+      id: 'OPT_01',
+      title: 'Camión',
+      type: 'Transporte colectivo',
+      costCredits: 5,
+      etaMinutes: 8,
+      co2SavingsKg: 1.2,
+      iconName: 'directions_bus',
+    ),
+    TransportOption(
+      id: 'OPT_02',
+      title: 'Van Empresarial',
+      type: 'Van corporativa',
+      costCredits: 10,
+      etaMinutes: 5,
+      co2SavingsKg: 0.9,
+      iconName: 'airport_shuttle',
+    ),
+    TransportOption(
+      id: 'OPT_03',
+      title: 'Carpooling',
+      type: 'Compañeros de trabajo',
+      costCredits: 3,
+      etaMinutes: 12,
+      co2SavingsKg: 0.6,
+      iconName: 'people',
+    ),
   ];
 
-  // Active Trip state
+  // Active Trip
   TripModel? currentTrip;
   bool isSearchingTrip = false;
 
-  // Recent trips history
-  List<TripModel> tripHistory = [
-    TripModel(
-      idViaje: 'PR-2841',
-      pasajeroNombre: 'Raúl Jiménez Beltrán',
-      conductorNombre: 'Juan Pérez Ochoa',
-      vehiculoInfo: 'Carrito Eléctrico #01',
-      origen: 'Nave A',
-      destino: 'Comedor B',
-      costoCreditos: 12,
-      co2EvitadoKg: 0.8,
-      distanciaKm: 1.2,
-      duracionMin: 8,
-      estado: 'Completado',
-      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-      qrCode: 'PR-2841-XYZ',
-    ),
-    TripModel(
-      idViaje: 'PR-2790',
-      pasajeroNombre: 'Raúl Jiménez Beltrán',
-      conductorNombre: 'María Torres',
-      vehiculoInfo: 'Van Corporativa #04',
-      origen: 'Administración A',
-      destino: 'Estac. Zona E2',
-      costoCreditos: 15,
-      co2EvitadoKg: 0.9,
-      distanciaKm: 1.8,
-      duracionMin: 12,
-      estado: 'Completado',
-      timestamp: DateTime.now().subtract(const Duration(days: 1)),
-      qrCode: 'PR-2790-ABC',
-    ),
-    TripModel(
-      idViaje: 'PR-2710',
-      pasajeroNombre: 'Raúl Jiménez Beltrán',
-      conductorNombre: 'Carlos Ruiz',
-      vehiculoInfo: 'E-Scooter #12',
-      origen: 'Bodega A',
-      destino: 'Nave C',
-      costoCreditos: 0,
-      co2EvitadoKg: 0.0,
-      distanciaKm: 0.5,
-      duracionMin: 0,
-      estado: 'Cancelado',
-      timestamp: DateTime.now().subtract(const Duration(days: 3)),
-      qrCode: 'PR-2710-CANCEL',
-    ),
-    TripModel(
-      idViaje: 'PR-2655',
-      pasajeroNombre: 'Raúl Jiménez Beltrán',
-      conductorNombre: 'Juan Pérez Ochoa',
-      vehiculoInfo: 'Carrito Eléctrico #01',
-      origen: 'Acceso Norte',
-      destino: 'Nave A',
-      costoCreditos: 8,
-      co2EvitadoKg: 0.5,
-      distanciaKm: 0.9,
-      duracionMin: 6,
-      estado: 'Completado',
-      timestamp: DateTime.now().subtract(const Duration(days: 5)),
-      qrCode: 'PR-2655-OK',
-    ),
-  ];
+  // Trip history (empty by default - clean DB)
+  List<TripModel> tripHistory = [];
 
-  // Transactions list
-  List<TransactionModel> transactions = [
-    TransactionModel(idTransaccion: 'TX-901', montoCreditos: 12, fecha: DateTime.now().subtract(const Duration(hours: 2)), motivo: 'Pago de viaje (Nave A -> Comedor B)', isDeduction: true),
-    TransactionModel(idTransaccion: 'TX-890', montoCreditos: 50, fecha: DateTime.now().subtract(const Duration(days: 2)), motivo: 'Recompensa por compartir viaje', isDeduction: false),
-    TransactionModel(idTransaccion: 'TX-800', montoCreditos: 500, fecha: DateTime.now().subtract(const Duration(days: 15)), motivo: 'Recarga Mensual Corporativa', isDeduction: false),
-  ];
+  List<DriverCandidate> get availableDrivers {
+    return [
+      DriverCandidate(
+        id: currentDriver.idEmpleado,
+        nombre: currentDriver.nombre,
+        vehicleInfo: currentDriver.vehicleInfo ?? 'Van de Transporte #01',
+        capacidadPasajeros: 8,
+        isOnline: isDriverOnline,
+        position: const LatLng(25.7255, -100.3125),
+      ),
+    ];
+  }
 
-  // Core Matching Algorithm logic
-  Future<TripModel> createTripRequest({
+  LocationNode getNearestNode(LatLng point, {LocationNode? exclude}) {
+    if (nodes.isEmpty) {
+      throw StateError(
+          'No hay nodos disponibles para calcular la ubicación cercana.');
+    }
+
+    LocationNode nearest = nodes.first;
+    double bestDistance = double.infinity;
+
+    for (final node in nodes) {
+      if (exclude != null && node.id == exclude.id) {
+        continue;
+      }
+      final distance = _roughDistanceKm(point, node.latLng);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        nearest = node;
+      }
+    }
+
+    return nearest;
+  }
+
+  double calculateNodeProximity(LocationNode origin, LocationNode destination) {
+    final distance = (origin.latitude - destination.latitude).abs() +
+        (origin.longitude - destination.longitude).abs();
+    return (1 / (distance + 0.0001)).clamp(0.0, 1.0);
+  }
+
+  static double _roughDistanceKm(LatLng from, LatLng to) {
+    final latDiff = (from.latitude - to.latitude).abs();
+    final lngDiff = (from.longitude - to.longitude).abs();
+    return (latDiff * latDiff + lngDiff * lngDiff) * 111.0;
+  }
+
+  bool capacityFilterAllowsRequest(int requestedPassengers, int capacity) {
+    return requestedPassengers <= capacity;
+  }
+
+  // Driver Incoming Request
+  TripModel? incomingDriverRequest;
+
+  static String normalizeRole(String? role) {
+    final value = (role ?? 'Pasajero').trim();
+    final lower = value.toLowerCase();
+
+    if (lower.contains('supervisor') || lower.contains('admin')) {
+      return 'Admin';
+    }
+    if (lower.contains('ruta') || lower.contains('route') || lower.contains('route_driver')) {
+      return 'Chofer de Ruta';
+    }
+    if (lower.contains('conductor') || lower.contains('chofer') || lower.contains('driver')) {
+      return 'Chofer';
+    }
+    return 'Pasajero';
+  }
+
+  // Métodos de autenticación integrados con Supabase
+  Future<void> loginUser(String email, String password) async {
+    final user = await _supabaseService.signIn(email: email, password: password);
+    final normalizedRole = normalizeRole(user.rol);
+    currentUser = user.copyWith(rol: normalizedRole);
+    if (normalizedRole.contains('Ruta') || normalizedRole.contains('Chofer')) {
+      currentDriver = currentUser;
+    }
+    notifyListeners();
+  }
+
+  Future<void> registerUser({
+    required String nombre,
+    required String email,
+    required String password,
+    required String rol,
+    String empresa = 'ParkRide',
+    String telefono = '+52 81 0000 0000',
+    String departamento = 'Sin departamento',
+    String numEmpleado = '',
+    String? vehicleInfo,
+  }) async {
+    final normalizedRol = normalizeRole(rol);
+    final user = await _supabaseService.signUp(
+      email: email,
+      password: password,
+      nombre: nombre,
+      rol: normalizedRol,
+      empresa: empresa,
+      departamento: departamento,
+      telefono: telefono,
+      numEmpleado: numEmpleado,
+      vehicleInfo: vehicleInfo,
+    );
+    currentUser = user.copyWith(rol: normalizedRol);
+    if (normalizedRol.contains('Ruta') || normalizedRol.contains('Chofer')) {
+      currentDriver = currentUser;
+    }
+    notifyListeners();
+  }
+
+  void logout() {
+    _supabaseService.signOut();
+    currentUser = UserModel(
+      idEmpleado: 'USR-0001',
+      nombre: 'Usuario ParkRide',
+      correo: 'usuario@empresa.com',
+      departamento: 'Movilidad Corporativa',
+      empresa: 'ParkRide',
+      telefono: '+52 81 0000 0000',
+      turno: 'Turno Matutino',
+      saldoCreditos: 450,
+      rol: 'Pasajero',
+    );
+    tripHistory = [];
+    currentTrip = null;
+    incomingDriverRequest = null;
+    notifyListeners();
+  }
+
+  // Solicitud de viaje por nombres o por nodos
+  Future<void> createTripRequest({
     required String origen,
     required String destino,
     required TransportOption option,
   }) async {
+    LocationNode origenNode;
+    LocationNode destinoNode;
+    try {
+      origenNode = nodes.firstWhere((n) =>
+          n.nombre == origen ||
+          n.nombre.toLowerCase().contains(origen.toLowerCase()));
+    } catch (_) {
+      origenNode = nodes.first;
+    }
+    try {
+      destinoNode = nodes.firstWhere((n) =>
+          n.nombre == destino ||
+          n.nombre.toLowerCase().contains(destino.toLowerCase()));
+    } catch (_) {
+      destinoNode = nodes.length > 1 ? nodes[1] : nodes.first;
+    }
+    requestTrip(origen: origenNode, destino: destinoNode, option: option);
+  }
+
+  Future<void> refreshNearestRoute() async {
+    final position = await ParkRideLocationService().getCurrentPosition();
+    if (position == null) {
+      closestAirportRoute = RouteMatch(
+        route: AirportRouteService.fixedRoutes.first,
+        distanceKm: 0,
+      );
+      notifyListeners();
+      return;
+    }
+
+    userCurrentLocation = position;
+    closestAirportRoute = AirportRouteService.findNearestRoute(
+      LatLng(position.latitude, position.longitude),
+    );
+    notifyListeners();
+  }
+
+  void requestTrip({
+    required LocationNode origen,
+    required LocationNode destino,
+    required TransportOption option,
+  }) {
     isSearchingTrip = true;
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 800));
+    final match = RideMatchingService.findBestMatch(
+      passengerOrigin: origen,
+      passengerDestination: destino,
+      requestedPassengers: 1,
+      drivers: availableDrivers,
+    );
 
-    // Calculate credits deduction
-    if (currentUser.saldoCreditos >= option.costCredits) {
-      currentUser.saldoCreditos -= option.costCredits;
-      totalCo2SavingsKg += option.co2SavingsKg;
+    final assignedDriverName = match.driverName;
+    final assignedVehicleInfo = match.vehicleInfo;
 
-      transactions.insert(
-        0,
-        TransactionModel(
-          idTransaccion: 'TX-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
-          montoCreditos: option.costCredits,
-          fecha: DateTime.now(),
-          motivo: 'Pago de viaje ($origen -> $destino)',
-          isDeduction: true,
-        ),
-      );
-    }
-
+    final qrExpiry = DateTime.now().add(const Duration(minutes: 15));
     final newTrip = TripModel(
-      idViaje: 'PR-${(2842 + tripHistory.length).toString()}',
+      idViaje: 'PR-${DateTime.now().millisecondsSinceEpoch % 10000}',
       pasajeroNombre: currentUser.nombre,
-      conductorNombre: currentDriver.nombre,
-      vehiculoInfo: '${option.title} #01',
-      origen: origen,
-      destino: destino,
+      conductorNombre: assignedDriverName,
+      vehiculoInfo: assignedVehicleInfo,
+      origen: origen.nombre,
+      destino: destino.nombre,
       costoCreditos: option.costCredits,
       co2EvitadoKg: option.co2SavingsKg,
       distanciaKm: 1.2,
-      duracionMin: option.etaMinutes + 4,
-      estado: 'En curso',
+      duracionMin: option.etaMinutes,
+      estado: match.matched ? 'Asignado' : 'Sin conductor disponible',
       timestamp: DateTime.now(),
-      qrCode: 'PR-${(2842 + tripHistory.length).toString()}',
+      qrCode: 'PR-QR-${DateTime.now().millisecondsSinceEpoch}',
+      qrExpiresAt: qrExpiry,
+      origenLat: origen.latitude,
+      origenLng: origen.longitude,
+      destinoLat: destino.latitude,
+      destinoLng: destino.longitude,
     );
 
+    // Deducir créditos
+    currentUser.saldoCreditos =
+        (currentUser.saldoCreditos - option.costCredits).clamp(0, 99999);
+    totalCo2SavingsKg += option.co2SavingsKg;
+
     currentTrip = newTrip;
+    incomingDriverRequest = newTrip;
     isSearchingTrip = false;
+
+    if (match.matched && match.driver != null) {
+      currentDriver = UserModel(
+        idEmpleado: match.driver!.id,
+        nombre: match.driver!.nombre,
+        correo: 'conductor@empresa.com',
+        departamento: 'Servicio de Transporte',
+        telefono: '+52 81 9876 5432',
+        turno: 'Turno Matutino',
+        saldoCreditos: 680,
+        rol: 'Chofer',
+        hasVehicle: true,
+        vehicleInfo: match.vehicleInfo,
+      );
+    }
+
+    // Guardar en Supabase asíncronamente
+    _supabaseService.requestTrip(newTrip);
+
     notifyListeners();
-    return newTrip;
   }
 
-  void finishCurrentTrip() {
+  void acceptDriverTrip() {
+    if (incomingDriverRequest != null) {
+      driverStatus = "En camino a origen";
+      _supabaseService.updateTripStatus(
+          incomingDriverRequest!.idViaje, 'Asignado');
+      notifyListeners();
+    }
+  }
+
+  void startTrip() {
+    driverStatus = "En viaje con pasajero";
     if (currentTrip != null) {
-      final completedTrip = TripModel(
+      _supabaseService.updateTripStatus(currentTrip!.idViaje, 'En curso');
+    }
+    notifyListeners();
+  }
+
+  void completeCurrentTrip() {
+    if (currentTrip != null) {
+      final finishedTrip = TripModel(
         idViaje: currentTrip!.idViaje,
         pasajeroNombre: currentTrip!.pasajeroNombre,
         conductorNombre: currentTrip!.conductorNombre,
@@ -205,22 +374,52 @@ class ParkRideState extends ChangeNotifier {
         estado: 'Completado',
         timestamp: currentTrip!.timestamp,
         qrCode: currentTrip!.qrCode,
+        qrExpiresAt: currentTrip!.qrExpiresAt,
+        origenLat: currentTrip!.origenLat,
+        origenLng: currentTrip!.origenLng,
+        destinoLat: currentTrip!.destinoLat,
+        destinoLng: currentTrip!.destinoLng,
       );
-      tripHistory.insert(0, completedTrip);
+
+      tripHistory.insert(0, finishedTrip);
+      _supabaseService.updateTripStatus(finishedTrip.idViaje, 'Finalizado');
       currentTrip = null;
+      incomingDriverRequest = null;
+      driverStatus = "Disponible";
       notifyListeners();
     }
   }
 
-  void toggleDriverMode(bool value) {
-    isDriverModeActive = value;
-    notifyListeners();
+  void finishCurrentTrip() => completeCurrentTrip();
+
+  void cancelCurrentTrip() {
+    if (currentTrip != null) {
+      currentUser.saldoCreditos += currentTrip!.costoCreditos;
+      _supabaseService.updateTripStatus(currentTrip!.idViaje, 'Cancelado');
+      currentTrip = null;
+      incomingDriverRequest = null;
+      driverStatus = "Disponible";
+      notifyListeners();
+    }
   }
 
-  void loginUser(String email, String password) {
-    if (email.contains('juan') || email.contains('conductor')) {
-      currentUser = currentDriver;
-    }
+  Future<void> toggleDriverOnline(bool online) async {
+    isDriverOnline = online;
+    driverStatus = online ? "Disponible" : "Desconectado";
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('parkride_driver_online', online);
+    await prefs.setString('parkride_driver_status', driverStatus);
+
+    await _supabaseService.syncDriverAvailability(
+      driverId: currentDriver.idEmpleado,
+      driverName: currentDriver.nombre,
+      isOnline: online,
+      status: driverStatus,
+      departamento: currentDriver.departamento,
+      vehicleInfo: currentDriver.vehicleInfo,
+    );
+
     notifyListeners();
   }
 }

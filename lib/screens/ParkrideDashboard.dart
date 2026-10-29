@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
+import '../models/parkride_models.dart';
+import '../services/airport_route_service.dart';
+import '../services/location_service.dart';
 import '../services/parkride_state.dart';
+import '../widgets/app_logo.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/campus_flutter_map.dart';
 
 class ParkrideDashboard extends StatefulWidget {
   const ParkrideDashboard({super.key});
@@ -12,15 +18,62 @@ class ParkrideDashboard extends StatefulWidget {
 class _ParkrideDashboardState extends State<ParkrideDashboard> {
   final state = ParkRideState();
 
+  LocationNode? selectedOrigen;
+  LocationNode? selectedDestino;
+  TransportOption? selectedOption;
+  final TextEditingController _searchController = TextEditingController();
+  late LatLng _mapCenter;
+
   @override
   void initState() {
     super.initState();
     state.addListener(_onStateChange);
+    _mapCenter = state.userCurrentLocation;
+    _initializeDefaultNodes();
+    _refreshUserLocation();
+    selectedOption = state.availableOptions.first;
+    state.refreshNearestRoute();
+  }
+
+  Future<void> _refreshUserLocation() async {
+    final currentPosition =
+        await ParkRideLocationService().getCurrentPosition();
+    if (!mounted || currentPosition == null) {
+      return;
+    }
+
+    setState(() {
+      state.userCurrentLocation = currentPosition;
+      _mapCenter = currentPosition;
+
+      final nearestOrigin = state.getNearestNode(currentPosition);
+      final nextNodes =
+          state.nodes.where((node) => node.id != nearestOrigin.id).toList();
+      final nearestDestination = nextNodes.isNotEmpty
+          ? state.getNearestNode(currentPosition, exclude: nearestOrigin)
+          : nearestOrigin;
+
+      selectedOrigen ??= nearestOrigin;
+      selectedDestino ??= nearestDestination;
+    });
+  }
+
+  void _initializeDefaultNodes() {
+    if (state.nodes.isEmpty) {
+      selectedOrigen = null;
+      selectedDestino = null;
+      return;
+    }
+
+    selectedOrigen ??= state.nodes.first;
+    selectedDestino ??=
+        state.nodes.length > 1 ? state.nodes[1] : state.nodes.first;
   }
 
   @override
   void dispose() {
     state.removeListener(_onStateChange);
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -28,361 +81,563 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
     if (mounted) setState(() {});
   }
 
+  void _showDestinationPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.65,
+          minChildSize: 0.4,
+          maxChildSize: 0.85,
+          expand: false,
+          builder: (_, scrollController) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Selecciona tu destino en el parque",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: "Buscar parada, zona o destino...",
+                      prefixIcon:
+                          const Icon(Icons.search, color: Color(0xFF22C55E)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                    ),
+                    onChanged: (val) {
+                      setState(() {});
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: ListView.separated(
+                      controller: scrollController,
+                      itemCount: state.nodes.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final node = state.nodes[index];
+                        final isSelected = selectedDestino?.id == node.id;
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: isSelected
+                                ? const Color(0xFF22C55E)
+                                : const Color(0xFF22C55E)
+                                    .withValues(alpha: 0.12),
+                            child: Icon(
+                              isSelected ? Icons.check : Icons.school,
+                              color: isSelected
+                                  ? Colors.white
+                                  : const Color(0xFF15803D),
+                              size: 20,
+                            ),
+                          ),
+                          title: Text(
+                            node.nombre,
+                            style: TextStyle(
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w600,
+                              color: const Color(0xFF1E293B),
+                            ),
+                          ),
+                          subtitle: Text(
+                            "${node.zona} • Lat: ${node.latitude.toStringAsFixed(4)}, Lng: ${node.longitude.toStringAsFixed(4)}",
+                            style: const TextStyle(
+                                fontSize: 11, color: Color(0xFF64748B)),
+                          ),
+                          onTap: () {
+                            setState(() {
+                              selectedDestino = node;
+                            });
+                            Navigator.pop(ctx);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _requestTripDirect() {
+    if (selectedOrigen == null ||
+        selectedDestino == null ||
+        selectedOption == null) return;
+    if (selectedOrigen!.id == selectedDestino!.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              "El origen y destino deben ser puntos distintos del parque."),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    state.requestTrip(
+      origen: selectedOrigen!,
+      destino: selectedDestino!,
+      option: selectedOption!,
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+            "¡Viaje solicitado a ${selectedDestino!.nombre}! Conductor asignado."),
+        backgroundColor: const Color(0xFF22C55E),
+      ),
+    );
+
+    Navigator.pushNamed(context, '/ViajeEnCurso');
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = state.currentUser;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F9),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            // Top Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              color: Colors.white,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // 1. Mapa Base con flutter_map (OpenStreetMap) en Ciudad Universitaria
+            Positioned.fill(
+              bottom: MediaQuery.of(context).size.height *
+                  0.35, // Dinámico según altura de pantalla
+              child: CampusFlutterMap(
+                initialCenter: _mapCenter,
+                initialZoom: 16.2,
+                selectedOrigen: selectedOrigen,
+                selectedDestino: selectedDestino,
+                onNodeSelected: (node) {
+                  setState(() {
+                    if (selectedOrigen == null) {
+                      selectedOrigen = node;
+                    } else if (selectedDestino == null ||
+                        selectedDestino!.id == node.id) {
+                      selectedDestino = node;
+                    } else {
+                      selectedDestino = node;
+                    }
+                  });
+                },
+                showDriverLocation: true,
+              ),
+            ),
+
+            // 2. Encabezado Flotante Superior (Perfil, Búsqueda y Botón de Chofer)
+            Positioned(
+              top: 12,
+              left: 16,
+              right: 16,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Hola, ${user.nombre}",
-                        style: const TextStyle(
-                          color: Color(0xFF64748B),
-                          fontSize: 14,
+                  // Barra de Estado Superior
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
                         ),
-                      ),
-                      const Text(
-                        "Mi Movilidad",
-                        style: TextStyle(
-                          color: Color(0xFF1E293B),
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const AppLogo(size: 34, borderRadius: 10),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                "Hola, ${user.nombre.split(' ').first}",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Color(0xFF1E293B),
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF22C55E),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    "${user.saldoCreditos} Créditos Verdes",
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF15803D),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                        // Botón de cambio rápido a Modo Conductor
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              Navigator.pushNamed(context, '/ModoConductor'),
+                          icon: const Icon(Icons.directions_bus,
+                              size: 16, color: Color(0xFF1E293B)),
+                          label: const Text(
+                            "Chofer",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            side: const BorderSide(color: Color(0xFFCBD5E1)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () => Navigator.pushNamed(
+                              context, '/ParkrideProfileSettings'),
+                          child: Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF22C55E)
+                                  .withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.person,
+                                color: Color(0xFF22C55E), size: 20),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+
+                  const SizedBox(height: 10),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.route_rounded,
+                            color: Color(0xFF86EFAC), size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            AirportRouteService.buildRouteRecommendationText(
+                                state.userCurrentLocation),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Barra de Búsqueda de Destinos con flutter_map / CU
                   GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, '/ParkrideProfileSettings'),
+                    onTap: _showDestinationPicker,
                     child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF22C55E).withOpacity(0.1),
-                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      padding: const EdgeInsets.all(10),
-                      child: const Icon(Icons.person, color: Color(0xFF22C55E), size: 28),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.search,
+                              color: Color(0xFF22C55E), size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              selectedDestino == null
+                                  ? "¿A dónde necesitas ir?"
+                                  : "Destino: ${selectedDestino!.nombre}",
+                              style: TextStyle(
+                                color: selectedDestino == null
+                                    ? const Color(0xFF64748B)
+                                    : const Color(0xFF1E293B),
+                                fontSize: 13,
+                                fontWeight: selectedDestino == null
+                                    ? FontWeight.normal
+                                    : FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
 
-            // Main Body Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
+            // 3. Panel Inferior Moderno para el Pasajero
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(24)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 16,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Banner Active Trip Notice if exists
-                    if (state.currentTrip != null) ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        margin: const EdgeInsets.only(bottom: 20),
+                    // Indicador de arrastre
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 12),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF3B82F6).withOpacity(0.4),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.electric_car, color: Colors.white, size: 36),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    "¡Tienes un Viaje en Curso!",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  Text(
-                                    "${state.currentTrip!.origen} -> ${state.currentTrip!.destino}",
-                                    style: const TextStyle(color: Colors.white70, fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            ElevatedButton(
-                              onPressed: () => Navigator.pushNamed(context, '/ViajeEnCurso'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: const Color(0xFF1D4ED8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              child: const Text("Ver"),
-                            ),
-                          ],
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
-                    ],
-
-                    // Section Title: Opciones de Traslado Interno
-                    const Text(
-                      "Opciones de Traslado Interno",
-                      style: TextStyle(
-                        color: Color(0xFF1E293B),
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Grid of 4 Transfer Options
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                      childAspectRatio: 1.25,
-                      children: [
-                        _buildOptionCard(
-                          context,
-                          title: "Viaje Bajo Demanda",
-                          subtitle: "Carritos y Vans",
-                          icon: Icons.electric_car_rounded,
-                          color: const Color(0xFF22C55E),
-                          onTap: () => Navigator.pushNamed(context, '/SolicitarViaje'),
-                        ),
-                        _buildOptionCard(
-                          context,
-                          title: "Reserva Vehículo",
-                          subtitle: "Asignación rápida",
-                          icon: Icons.time_to_leave_rounded,
-                          color: const Color(0xFF3B82F6),
-                          onTap: () => Navigator.pushNamed(context, '/SolicitarViaje'),
-                        ),
-                        _buildOptionCard(
-                          context,
-                          title: "Ruta Shuttle",
-                          subtitle: "Horarios fijos",
-                          icon: Icons.airport_shuttle_rounded,
-                          color: const Color(0xFFA855F7),
-                          onTap: () => Navigator.pushNamed(context, '/SolicitarViaje'),
-                        ),
-                        _buildOptionCard(
-                          context,
-                          title: "E-Scooters & Bicis",
-                          subtitle: "Micromovilidad",
-                          icon: Icons.two_wheeler_rounded,
-                          color: const Color(0xFFF59E0B),
-                          onTap: () => Navigator.pushNamed(context, '/SolicitarViaje'),
-                        ),
-                      ],
                     ),
 
-                    const SizedBox(height: 24),
-
-                    // Section Title: Mi Billetera y Sostenibilidad
-                    const Text(
-                      "Mi Billetera y Sostenibilidad",
-                      style: TextStyle(
-                        color: Color(0xFF1E293B),
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Wallet & ESG Cards
+                    // Chip de Ruta Seleccionada (Origen -> Destino)
                     Row(
                       children: [
-                        // Card 1: Créditos
+                        const Icon(Icons.my_location,
+                            size: 16, color: Color(0xFF3B82F6)),
+                        const SizedBox(width: 6),
                         Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
+                          child: Text(
+                            "${selectedOrigen?.nombre.split(' - ').first ?? 'Punto de origen'} → ${selectedDestino?.nombre.split(' - ').first ?? 'Punto de destino'}",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Color(0xFF1E293B),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF22C55E)),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF22C55E).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Text(
-                                        "Créditos",
-                                        style: TextStyle(color: Color(0xFF22C55E), fontSize: 11, fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  "${user.saldoCreditos} / 500",
-                                  style: const TextStyle(
-                                    color: Color(0xFF1E293B),
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const Text(
-                                  "Saldo Actual",
-                                  style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
-                                ),
-                                const SizedBox(height: 12),
-                                LinearProgressIndicator(
-                                  value: user.saldoCreditos / 500,
-                                  backgroundColor: const Color(0xFFF1F5F9),
-                                  color: const Color(0xFF22C55E),
-                                  minHeight: 6,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ],
-                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-
-                        const SizedBox(width: 14),
-
-                        // Card 2: CO2 Evitado
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Icon(Icons.eco_rounded, color: Color(0xFF10B981)),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF10B981).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Text(
-                                        "Ahorro",
-                                        style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  "${state.totalCo2SavingsKg.toStringAsFixed(1)} Kg",
-                                  style: const TextStyle(
-                                    color: Color(0xFF1E293B),
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const Text(
-                                  "CO₂ Evitado",
-                                  style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
-                                ),
-                                const SizedBox(height: 12),
-                                LinearProgressIndicator(
-                                  value: (state.totalCo2SavingsKg / 10.0).clamp(0.0, 1.0),
-                                  backgroundColor: const Color(0xFFF1F5F9),
-                                  color: const Color(0xFF10B981),
-                                  minHeight: 6,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ],
-                            ),
+                        TextButton(
+                          onPressed: _showDestinationPicker,
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(50, 24),
+                          ),
+                          child: const Text(
+                            "Cambiar",
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF22C55E),
+                                fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
 
-                    // Quick Switch to Driver Mode
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(Icons.badge, color: Colors.white),
-                              SizedBox(width: 12),
-                              Column(
+                    // Opciones de Transporte Universitario
+                    SizedBox(
+                      height: 104,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: state.availableOptions.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 10),
+                        itemBuilder: (context, index) {
+                          final option = state.availableOptions[index];
+                          final isSelected = selectedOption?.id == option.id;
+
+                          return GestureDetector(
+                            onTap: () =>
+                                setState(() => selectedOption = option),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              width: 120,
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? const Color(0xFF22C55E)
+                                        .withValues(alpha: 0.08)
+                                    : const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? const Color(0xFF22C55E)
+                                      : const Color(0xFFE2E8F0),
+                                  width: isSelected ? 2 : 1,
+                                ),
+                              ),
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    "Modo Conductor",
-                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Icon(
+                                        option.iconName == 'airport_shuttle'
+                                            ? Icons.airport_shuttle
+                                            : (option.iconName == 'people'
+                                                ? Icons.people_rounded
+                                                : Icons.directions_bus_rounded),
+                                        size: 22,
+                                        color: isSelected
+                                            ? const Color(0xFF22C55E)
+                                            : const Color(0xFF475569),
+                                      ),
+                                      Text(
+                                        "${option.etaMinutes} min",
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: isSelected
+                                              ? const Color(0xFF15803D)
+                                              : const Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   Text(
-                                    "Gana créditos transportando compañeros",
-                                    style: TextStyle(color: Colors.white70, fontSize: 11),
+                                    option.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                      color: Color(0xFF1E293B),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        "${option.costCredits} cr",
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF15803D),
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        "-${option.co2SavingsKg}kg",
+                                        style: const TextStyle(
+                                            fontSize: 10,
+                                            color: Color(0xFF94A3B8)),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                          Switch(
-                            value: state.isDriverModeActive,
-                            onChanged: (val) {
-                              state.toggleDriverMode(val);
-                              if (val) {
-                                Navigator.pushNamed(context, '/ModoConductor');
-                              }
-                            },
-                            activeColor: const Color(0xFF22C55E),
-                          ),
-                        ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Botón Principal de Acción "Solicitar Traslado en Campus"
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: _requestTripDirect,
+                        icon: const Icon(Icons.flash_on,
+                            color: Colors.white, size: 20),
+                        label: Text(
+                          selectedOption == null
+                              ? "Solicitar Traslado"
+                              : "Solicitar ${selectedOption!.title}",
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF22C55E),
+                          foregroundColor: Colors.white,
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14)),
+                        ),
                       ),
                     ),
                   ],
@@ -393,65 +648,6 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
         ),
       ),
       bottomNavigationBar: const ParkRideBottomNavBar(currentIndex: 0),
-    );
-  }
-
-  Widget _buildOptionCard(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 28),
-            ),
-            const Spacer(),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Color(0xFF1E293B),
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                color: Color(0xFF64748B),
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

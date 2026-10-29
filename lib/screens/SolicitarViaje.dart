@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/parkride_models.dart';
 import '../services/parkride_state.dart';
+import '../widgets/app_logo.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/interactive_map.dart';
 
@@ -14,14 +15,18 @@ class SolicitarViaje extends StatefulWidget {
 class _SolicitarViajeState extends State<SolicitarViaje> {
   final state = ParkRideState();
 
-  String origen = "Nave A";
-  String destino = "Comedor B";
+  late String origen;
+  late String destino;
   TransportOption? selectedOption;
   bool isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
+    origen = state.nodes.first.nombre;
+    destino = state.nodes.length > 1
+        ? state.nodes[1].nombre
+        : state.nodes.first.nombre;
     selectedOption = state.availableOptions.first;
   }
 
@@ -30,7 +35,8 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
     if (origen == destino) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("El origen y destino deben ser nodos distintos del parque."),
+          content:
+              Text("El origen y destino deben ser nodos distintos del parque."),
           backgroundColor: Colors.red,
         ),
       );
@@ -64,9 +70,16 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
         ),
         title: const Text(
           "Solicitar Viaje",
-          style: TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.bold),
+          style:
+              TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: AppLogo(size: 32, borderRadius: 8),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -86,7 +99,7 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: Colors.black.withValues(alpha: 0.04),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -97,9 +110,13 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
                           // Origen Dropdown
                           Row(
                             children: [
-                              const Icon(Icons.my_location, color: Color(0xFF3B82F6)),
+                              const Icon(Icons.my_location,
+                                  color: Color(0xFF3B82F6)),
                               const SizedBox(width: 12),
-                              const Text("Origen: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              const Text("Origen: ",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14)),
                               Expanded(
                                 child: DropdownButton<String>(
                                   value: origen,
@@ -108,11 +125,13 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
                                   items: state.nodes.map((n) {
                                     return DropdownMenuItem<String>(
                                       value: n.nombre,
-                                      child: Text(n.nombre, style: const TextStyle(fontSize: 14)),
+                                      child: Text(n.nombre,
+                                          style: const TextStyle(fontSize: 14)),
                                     );
                                   }).toList(),
                                   onChanged: (val) {
-                                    if (val != null) setState(() => origen = val);
+                                    if (val != null)
+                                      setState(() => origen = val);
                                   },
                                 ),
                               ),
@@ -124,9 +143,13 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
                           // Destino Dropdown
                           Row(
                             children: [
-                              const Icon(Icons.location_on, color: Color(0xFF22C55E)),
+                              const Icon(Icons.location_on,
+                                  color: Color(0xFF22C55E)),
                               const SizedBox(width: 12),
-                              const Text("Destino: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              const Text("Destino: ",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14)),
                               Expanded(
                                 child: DropdownButton<String>(
                                   value: destino,
@@ -135,11 +158,13 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
                                   items: state.nodes.map((n) {
                                     return DropdownMenuItem<String>(
                                       value: n.nombre,
-                                      child: Text(n.nombre, style: const TextStyle(fontSize: 14)),
+                                      child: Text(n.nombre,
+                                          style: const TextStyle(fontSize: 14)),
                                     );
                                   }).toList(),
                                   onChanged: (val) {
-                                    if (val != null) setState(() => destino = val);
+                                    if (val != null)
+                                      setState(() => destino = val);
                                   },
                                 ),
                               ),
@@ -153,7 +178,7 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
 
                     // Interactive Mini Live Map Render
                     const Text(
-                      "Mapa del Parque Industrial (Nodos)",
+                      "Mapa de Rutas (OpenStreetMap)",
                       style: TextStyle(
                         color: Color(0xFF1E293B),
                         fontSize: 15,
@@ -192,7 +217,10 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
                         ),
                         Text(
                           "Saldo: ${state.currentUser.saldoCreditos} pts",
-                          style: const TextStyle(color: Color(0xFF22C55E), fontWeight: FontWeight.bold, fontSize: 12),
+                          style: const TextStyle(
+                              color: Color(0xFF22C55E),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12),
                         ),
                       ],
                     ),
@@ -209,10 +237,15 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
                             margin: const EdgeInsets.only(bottom: 10),
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xFF22C55E).withOpacity(0.08) : Colors.white,
+                              color: isSelected
+                                  ? const Color(0xFF22C55E)
+                                      .withValues(alpha: 0.08)
+                                  : Colors.white,
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
-                                color: isSelected ? const Color(0xFF22C55E) : const Color(0xFFE2E8F0),
+                                color: isSelected
+                                    ? const Color(0xFF22C55E)
+                                    : const Color(0xFFE2E8F0),
                                 width: isSelected ? 2 : 1,
                               ),
                             ),
@@ -221,18 +254,23 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
                                 Container(
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
-                                    color: isSelected ? const Color(0xFF22C55E) : const Color(0xFFF1F5F9),
+                                    color: isSelected
+                                        ? const Color(0xFF22C55E)
+                                        : const Color(0xFFF1F5F9),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Icon(
                                     _getIconData(opt.iconName),
-                                    color: isSelected ? Colors.white : const Color(0xFF64748B),
+                                    color: isSelected
+                                        ? Colors.white
+                                        : const Color(0xFF64748B),
                                   ),
                                 ),
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         opt.title,
@@ -244,7 +282,9 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
                                       ),
                                       Text(
                                         "${opt.etaMinutes} mins de llegada · Eco: -${opt.co2SavingsKg} kg CO₂",
-                                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                        style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFF64748B)),
                                       ),
                                     ],
                                   ),
@@ -257,12 +297,16 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 14,
-                                        color: isSelected ? const Color(0xFF22C55E) : const Color(0xFF1E293B),
+                                        color: isSelected
+                                            ? const Color(0xFF22C55E)
+                                            : const Color(0xFF1E293B),
                                       ),
                                     ),
                                     const Text(
                                       "Pago virtual",
-                                      style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                                      style: TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFF94A3B8)),
                                     ),
                                   ],
                                 ),
@@ -289,14 +333,16 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF22C55E),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                     elevation: 2,
                   ),
                   child: isSubmitting
                       ? const CircularProgressIndicator(color: Colors.white)
                       : Text(
                           "Confirmar Viaje (${selectedOption?.costCredits ?? 0} Créditos)",
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                 ),
               ),
@@ -310,14 +356,10 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
 
   IconData _getIconData(String name) {
     switch (name) {
-      case 'electric_car':
-        return Icons.electric_car_rounded;
       case 'airport_shuttle':
         return Icons.airport_shuttle_rounded;
-      case 'two_wheeler':
-        return Icons.two_wheeler_rounded;
-      case 'pedal_bike':
-        return Icons.pedal_bike_rounded;
+      case 'people':
+        return Icons.people_rounded;
       case 'directions_bus':
         return Icons.directions_bus_rounded;
       default:

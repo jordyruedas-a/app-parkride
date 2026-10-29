@@ -1,51 +1,166 @@
+import 'package:latlong2/latlong.dart';
+
 class UserModel {
   final String idEmpleado;
   final String nombre;
   final String correo;
   final String departamento;
+  final String empresa;
   final String telefono;
   final String turno;
   int saldoCreditos;
-  final String rol; // Pasajero, Conductor, Admin
+  final String rol; // Pasajero, Conductor, Admin, Supervisor
   final bool hasVehicle;
-  final String? vehicleInfo;
+  String? vehicleInfo;
+  final String? numEmpleado;
 
   UserModel({
     required this.idEmpleado,
     required this.nombre,
     required this.correo,
-    required this.departamento,
+    String? departamento,
+    String? empresa,
     required this.telefono,
     required this.turno,
     required this.saldoCreditos,
     required this.rol,
     this.hasVehicle = false,
     this.vehicleInfo,
-  });
+    this.numEmpleado,
+  })  : departamento = (departamento != null && departamento.trim().isNotEmpty)
+            ? departamento
+            : (empresa != null && empresa.trim().isNotEmpty)
+                ? empresa
+                : 'Sin departamento',
+        empresa = (empresa != null && empresa.trim().isNotEmpty)
+            ? empresa
+            : (departamento != null && departamento.trim().isNotEmpty)
+                ? departamento
+                : 'Sin empresa';
+
+  factory UserModel.fromMap(Map<String, dynamic> map) {
+    final empresaValue =
+        (map['empresa'] ?? map['departamento'] ?? 'Sin empresa').toString();
+    final departamentoValue = (map['departamento'] ?? empresaValue).toString();
+
+    return UserModel(
+      idEmpleado: map['id_empleado'] ?? map['id'] ?? 'USR-0001',
+      nombre: map['nombre'] ?? 'Usuario',
+      correo: map['correo'] ?? '',
+      departamento: departamentoValue,
+      empresa: empresaValue,
+      telefono: map['telefono'] ?? '+52 81 0000 0000',
+      turno: map['turno'] ?? 'Matutino',
+      saldoCreditos: map['saldo_creditos'] is int ? map['saldo_creditos'] : 450,
+      rol: map['rol'] ?? 'Pasajero',
+      hasVehicle: map['has_vehicle'] ?? false,
+      vehicleInfo: map['vehicle_info'],
+      numEmpleado: map['num_empleado']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    final normalizedEmpresa =
+        empresa.trim().isNotEmpty ? empresa : departamento;
+    return {
+      'id_empleado': idEmpleado,
+      'nombre': nombre,
+      'correo': correo,
+      'departamento': departamento,
+      'empresa': normalizedEmpresa,
+      'telefono': telefono,
+      'turno': turno,
+      'saldo_creditos': saldoCreditos,
+      'rol': rol,
+      'has_vehicle': hasVehicle,
+      'vehicle_info': vehicleInfo,
+      'num_empleado': numEmpleado,
+    };
+  }
+
+  UserModel copyWith({
+    String? idEmpleado,
+    String? nombre,
+    String? correo,
+    String? departamento,
+    String? empresa,
+    String? telefono,
+    String? turno,
+    int? saldoCreditos,
+    String? rol,
+    bool? hasVehicle,
+    String? vehicleInfo,
+    String? numEmpleado,
+  }) {
+    return UserModel(
+      idEmpleado: idEmpleado ?? this.idEmpleado,
+      nombre: nombre ?? this.nombre,
+      correo: correo ?? this.correo,
+      departamento: departamento ?? this.departamento,
+      empresa: empresa ?? this.empresa,
+      telefono: telefono ?? this.telefono,
+      turno: turno ?? this.turno,
+      saldoCreditos: saldoCreditos ?? this.saldoCreditos,
+      rol: rol ?? this.rol,
+      hasVehicle: hasVehicle ?? this.hasVehicle,
+      vehicleInfo: vehicleInfo ?? this.vehicleInfo,
+      numEmpleado: numEmpleado ?? this.numEmpleado,
+    );
+  }
 }
 
 class LocationNode {
   final String id;
   final String nombre;
   final String zona;
-  final double xRatio; // Relative position on map (0.0 to 1.0)
+  final double xRatio;
   final double yRatio;
   final String iconType;
+  final double latitude;
+  final double longitude;
 
   LocationNode({
     required this.id,
     required this.nombre,
     required this.zona,
-    required this.xRatio,
-    required this.yRatio,
+    this.xRatio = 0.5,
+    this.yRatio = 0.5,
     required this.iconType,
+    this.latitude = 25.7252,
+    this.longitude = -100.3131,
   });
+
+  LatLng get latLng => LatLng(latitude, longitude);
+
+  factory LocationNode.fromMap(Map<String, dynamic> map) {
+    return LocationNode(
+      id: map['id'] ?? '',
+      nombre: map['nombre'] ?? '',
+      zona: map['zona'] ?? '',
+      xRatio: (map['x_ratio'] as num?)?.toDouble() ?? 0.5,
+      yRatio: (map['y_ratio'] as num?)?.toDouble() ?? 0.5,
+      iconType: map['icon_type'] ?? 'place',
+      latitude: (map['latitude'] as num?)?.toDouble() ?? 25.7252,
+      longitude: (map['longitude'] as num?)?.toDouble() ?? -100.3131,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'nombre': nombre,
+      'zona': zona,
+      'icon_type': iconType,
+      'latitude': latitude,
+      'longitude': longitude,
+    };
+  }
 }
 
 class TransportOption {
   final String id;
   final String title;
-  final String type; // Carrito Eléctrico, Van, E-Scooter, Bicicleta, Shuttle
+  final String type;
   final int costCredits;
   final int etaMinutes;
   final double co2SavingsKg;
@@ -64,12 +179,14 @@ class TransportOption {
 
 class VehicleModel {
   final String idVehiculo;
-  final String tipo; // Carrito, Van, Auto Eléctrico
+  final String tipo;
   final int capacidadPasajeros;
   final String placaNumero;
   final String propietario;
   final String color;
-  final String estado; // ACTIVO, EN VIAJE, MANTENIMIENTO
+  final String estado;
+  final double currentLat;
+  final double currentLng;
 
   VehicleModel({
     required this.idVehiculo,
@@ -79,7 +196,11 @@ class VehicleModel {
     required this.propietario,
     required this.color,
     this.estado = 'ACTIVO',
+    this.currentLat = 25.7252,
+    this.currentLng = -100.3131,
   });
+
+  LatLng get latLng => LatLng(currentLat, currentLng);
 }
 
 class TripModel {
@@ -93,9 +214,14 @@ class TripModel {
   final double co2EvitadoKg;
   final double distanciaKm;
   final int duracionMin;
-  final String estado; // En cola, Asignado, En curso, Finalizado, Cancelado
+  final String estado;
   final DateTime timestamp;
   final String qrCode;
+  final DateTime? qrExpiresAt;
+  final double origenLat;
+  final double origenLng;
+  final double destinoLat;
+  final double destinoLng;
 
   TripModel({
     required this.idViaje,
@@ -111,14 +237,83 @@ class TripModel {
     required this.estado,
     required this.timestamp,
     required this.qrCode,
+    this.qrExpiresAt,
+    this.origenLat = 25.7252,
+    this.origenLng = -100.3131,
+    this.destinoLat = 25.7280,
+    this.destinoLng = -100.3110,
   });
+
+  bool get isQrExpired {
+    if (qrExpiresAt == null) return false;
+    return DateTime.now().isAfter(qrExpiresAt!);
+  }
+
+  Duration get qrTimeRemaining {
+    if (qrExpiresAt == null) return Duration.zero;
+    final remaining = qrExpiresAt!.difference(DateTime.now());
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+
+  LatLng get origenLatLng => LatLng(origenLat, origenLng);
+  LatLng get destinoLatLng => LatLng(destinoLat, destinoLng);
+
+  factory TripModel.fromMap(Map<String, dynamic> map) {
+    return TripModel(
+      idViaje: map['id_viaje'] ?? map['id'] ?? '',
+      pasajeroNombre: map['pasajero_nombre'] ?? 'Pasajero',
+      conductorNombre: map['conductor_nombre'] ?? 'Conductor',
+      vehiculoInfo: map['vehiculo_info'] ?? 'Unidad de Transporte',
+      origen: map['origen'] ?? 'Origen',
+      destino: map['destino'] ?? 'Destino',
+      costoCreditos: map['costo_creditos'] is int ? map['costo_creditos'] : 10,
+      co2EvitadoKg: (map['co2_evitado_kg'] as num?)?.toDouble() ?? 0.5,
+      distanciaKm: (map['distancia_km'] as num?)?.toDouble() ?? 1.0,
+      duracionMin: map['duracion_min'] is int ? map['duracion_min'] : 5,
+      estado: map['estado'] ?? 'En cola',
+      timestamp: map['timestamp'] != null
+          ? DateTime.tryParse(map['timestamp']) ?? DateTime.now()
+          : DateTime.now(),
+      qrCode: map['qr_code'] ?? 'PR-QR',
+      qrExpiresAt: map['qr_expires_at'] != null
+          ? DateTime.tryParse(map['qr_expires_at'].toString())
+          : null,
+      origenLat: (map['origen_lat'] as num?)?.toDouble() ?? 25.7252,
+      origenLng: (map['origen_lng'] as num?)?.toDouble() ?? -100.3131,
+      destinoLat: (map['destino_lat'] as num?)?.toDouble() ?? 25.7280,
+      destinoLng: (map['destino_lng'] as num?)?.toDouble() ?? -100.3110,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id_viaje': idViaje,
+      'pasajero_nombre': pasajeroNombre,
+      'conductor_nombre': conductorNombre,
+      'vehiculo_info': vehiculoInfo,
+      'origen': origen,
+      'destino': destino,
+      'costo_creditos': costoCreditos,
+      'co2_evitado_kg': co2EvitadoKg,
+      'distancia_km': distanciaKm,
+      'duracion_min': duracionMin,
+      'estado': estado,
+      'timestamp': timestamp.toIso8601String(),
+      'qr_code': qrCode,
+      'qr_expires_at': qrExpiresAt?.toIso8601String(),
+      'origen_lat': origenLat,
+      'origen_lng': origenLng,
+      'destino_lat': destinoLat,
+      'destino_lng': destinoLng,
+    };
+  }
 }
 
 class TransactionModel {
   final String idTransaccion;
   final int montoCreditos;
   final DateTime fecha;
-  final String motivo; // Pago de viaje, Recarga mensual, Recompensa ambiental
+  final String motivo;
   final bool isDeduction;
 
   TransactionModel({

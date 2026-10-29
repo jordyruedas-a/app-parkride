@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-
+import 'services/supabase_service.dart';
+import 'screens/ChoferRutaScreen.dart';
 import 'screens/CodigoQRScreen.dart';
 import 'screens/Frame1.dart';
 import 'screens/Frame2.dart';
@@ -12,9 +13,15 @@ import 'screens/ParkrideLogin.dart';
 import 'screens/ParkrideProfileSettings.dart';
 import 'screens/ReportesESGScreen.dart';
 import 'screens/SolicitarViaje.dart';
+import 'screens/SupervisorDashboard.dart';
 import 'screens/ViajeEnCurso.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicialización de Supabase
+  await SupabaseService.initialize();
+
   runApp(const ParkRideApp());
 }
 
@@ -25,7 +32,7 @@ class ParkRideApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'ParkRide - UANL FIME',
+      title: 'ParkRide',
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'Roboto',
@@ -43,7 +50,7 @@ class ParkRideApp extends StatelessWidget {
           foregroundColor: Color(0xFF1E293B),
         ),
       ),
-      initialRoute: '/ParkrideDashboard',
+      initialRoute: '/ParkrideLogin',
       routes: {
         '/ParkrideDashboard': (context) => const ParkrideDashboard(),
         '/ParkrideLogin': (context) => const ParkrideLogin(),
@@ -51,15 +58,19 @@ class ParkRideApp extends StatelessWidget {
         '/SolicitarViaje': (context) => const SolicitarViaje(),
         '/ViajeEnCurso': (context) => const ViajeEnCurso(),
         '/ModoConductor': (context) => const ModoConductor(),
-        '/ParkrideProfileSettings': (context) => const ParkrideProfileSettings(),
+        '/ParkrideProfileSettings': (context) =>
+            const ParkrideProfileSettings(),
         '/CodigoQR': (context) => const CodigoQRScreen(),
         '/HistorialViajes': (context) => const HistorialViajesScreen(),
         '/ReportesESG': (context) => const ReportesESGScreen(),
+        '/SupervisorDashboard': (context) => const SupervisorDashboard(),
+        '/ChoferRuta': (context) => const ChoferRutaScreen(),
 
-        // Compatibility routes matching user prompt
+        // Compatibilidad de pantallas
         '/Frame1': (context) => const Frame1(),
         '/Frame2': (context) => const Frame2(),
-        '/ParkrideContrasenaIncorrecta': (context) => const ParkrideContrasenaIncorrecta(),
+        '/ParkrideContrasenaIncorrecta': (context) =>
+            const ParkrideContrasenaIncorrecta(),
       },
     );
   }
