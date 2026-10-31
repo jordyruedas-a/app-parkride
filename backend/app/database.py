@@ -27,11 +27,24 @@ def _add_missing_route_columns() -> None:
         "color": "VARCHAR(7) NOT NULL DEFAULT '#1D4ED8'",
         "vehicle_id": "UUID",
         "is_available": "BOOLEAN NOT NULL DEFAULT TRUE",
+        "return_stops": "JSON NOT NULL DEFAULT '[]'",
+        "return_color": "VARCHAR(7) NOT NULL DEFAULT '#F97316'",
     }
     with engine.begin() as connection:
         for name, definition in additions.items():
             if name not in existing_columns:
                 connection.execute(text(f"ALTER TABLE routes ADD COLUMN {name} {definition}"))
+
+    user_columns = {column["name"] for column in inspector.get_columns("users")}
+    user_additions = {
+        "is_volunteer_driver": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "carpool_avenues": "JSON NOT NULL DEFAULT '[]'",
+        "carpool_vehicles": "JSON NOT NULL DEFAULT '[]'",
+    }
+    with engine.begin() as connection:
+        for name, definition in user_additions.items():
+            if name not in user_columns:
+                connection.execute(text(f"ALTER TABLE users ADD COLUMN {name} {definition}"))
 
 
 def initialize_database() -> None:

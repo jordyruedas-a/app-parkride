@@ -54,6 +54,7 @@ class _ChoferRutaScreenState extends State<ChoferRutaScreen> {
         _routeCompleted = true;
         _serviceStatus = 'Finalizada';
       });
+      _showReturnRouteSheet();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -65,6 +66,42 @@ class _ChoferRutaScreenState extends State<ChoferRutaScreen> {
         ),
       );
     }
+  }
+
+  void _showReturnRouteSheet() {
+    final route = state.assignedDriverRoute;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.reply_rounded, color: Color(0xFFF97316), size: 32),
+            const SizedBox(height: 12),
+            const Text(
+              'Ruta de ida finalizada',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'La ruta de regreso inicia desde ${route.stops.last.nombre}. '
+              'Próximo horario: ${state.nextRouteDeparture ?? 'por confirmar'}.',
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override

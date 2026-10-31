@@ -142,7 +142,7 @@ def _ensure_route_access(route: Route, current_user: User) -> None:
 
 def _issue_qr(trip: Trip, db: Session) -> QRTokenResponse:
     now = _utcnow()
-    expires_at = now + timedelta(minutes=QR_VALIDITY_MINUTES)
+    expires_at = now + timedelta(seconds=900)
     db.execute(
         update(QRToken)
         .where(QRToken.trip_id == trip.id, QRToken.used.is_(False))

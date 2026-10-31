@@ -376,12 +376,22 @@ class _BoardingPassDialog extends StatefulWidget {
 
 class _BoardingPassDialogState extends State<_BoardingPassDialog> {
   late final Timer _timer;
+  late int _secondsRemaining;
 
   @override
   void initState() {
     super.initState();
+    _secondsRemaining = widget.trip.qrExpiresAt == null
+        ? 900
+        : widget.trip.qrTimeRemaining.inSeconds.clamp(0, 900).toInt();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
+      if (!mounted || _secondsRemaining <= 0) {
+        _timer.cancel();
+        return;
+      }
+      setState(() {
+        _secondsRemaining--;
+      });
     });
   }
 
@@ -393,8 +403,8 @@ class _BoardingPassDialogState extends State<_BoardingPassDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final remaining = widget.trip.qrTimeRemaining;
-    final expired = widget.trip.isQrExpired;
+    final expired = _secondsRemaining == 0;
+    final remaining = Duration(seconds: _secondsRemaining);
     final minutes = remaining.inMinutes.toString().padLeft(2, '0');
     final seconds = (remaining.inSeconds % 60).toString().padLeft(2, '0');
 

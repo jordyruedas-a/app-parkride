@@ -1,0 +1,17 @@
+PARKRIDE V3
+============
+
+- QR: expiración exacta de 900 segundos y contador MM:SS.
+- Cámara: permiso en tiempo de ejecución y acceso a Configuración si se bloquea.
+- Rutas: retorno persistente con paradas invertidas y color naranja.
+- Carpooling: usuario voluntario, vehículos y avenidas persistentes en la API.
+- Semilla: 5 rutas de camión, 5 de van, 10 choferes, flota y una pasajera de carpooling.
+
+Backend local:
+cd backend
+.\.venv\Scripts\Activate.ps1
+python seed_demo.py
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+APK Render:
+flutter build apk --release --dart-define=PARKRIDE_API_URL=https://parkride-api.onrender.com

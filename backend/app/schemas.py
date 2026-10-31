@@ -42,6 +42,9 @@ class UserUpdate(BaseModel):
     employee_number: str | None = None
     phone: str | None = None
     shift: str | None = None
+    is_volunteer_driver: bool | None = None
+    carpool_avenues: list[str] | None = None
+    carpool_vehicles: list[dict] | None = None
 
     @field_validator("password")
     @classmethod
@@ -63,6 +66,9 @@ class UserResponse(BaseModel):
     employee_number: str | None = None
     phone: str | None = None
     shift: str | None = None
+    is_volunteer_driver: bool
+    carpool_avenues: list[str] = Field(default_factory=list)
+    carpool_vehicles: list[dict] = Field(default_factory=list)
 
 
 class AuthLogin(BaseModel):
@@ -174,6 +180,8 @@ class RouteResponse(BaseModel):
     vehicle_id: UUID | None
     is_active: bool
     is_available: bool
+    return_stops: list[dict] = Field(default_factory=list)
+    return_color: str
     created_at: datetime
     driver: RouteDriverResponse | None = None
     vehicle: VehicleResponse | None = None

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, Double, ForeignKey, Integer, String, Text, Time, UniqueConstraint, Uuid
+from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, Double, ForeignKey, Integer, JSON, String, Text, Time, UniqueConstraint, Uuid
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -19,6 +19,9 @@ class User(Base):
     employee_number = Column(String(255))
     phone = Column(String(50))
     shift = Column(String(50))
+    is_volunteer_driver = Column(Boolean, default=False, nullable=False)
+    carpool_avenues = Column(JSON, default=list, nullable=False)
+    carpool_vehicles = Column(JSON, default=list, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
@@ -43,6 +46,8 @@ class Route(Base):
     vehicle_id = Column(Uuid(as_uuid=True), ForeignKey("vehicles.id"))
     is_active = Column(Boolean, default=True, nullable=False)
     is_available = Column(Boolean, default=True, nullable=False)
+    return_stops = Column(JSON, default=list, nullable=False)
+    return_color = Column(String(7), nullable=False, default="#F97316")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     driver = relationship("User", foreign_keys=[driver_id])

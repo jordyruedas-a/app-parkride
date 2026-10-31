@@ -11,9 +11,9 @@ from app.models import Route, RouteStop, User, Vehicle
 
 DEMO_PASSWORD = "123"
 DEMO_ACCOUNTS = (
-    ("pasajero@parkride.com", "Pasajero Demo", "passenger"),
-    ("chofer@parkride.com", "Chofer Demo", "route_driver"),
-    ("supervisor@parkride.com", "Supervisor Demo", "supervisor"),
+    ("pasajero@parkride.com", "Sofía Torres", "passenger"),
+    ("chofer@parkride.com", "Carlos Mendoza", "route_driver"),
+    ("supervisor@parkride.com", "Mariana Saldaña", "supervisor"),
 )
 
 ROUTES = (
@@ -24,7 +24,7 @@ ROUTES = (
         "departure_time": time(6, 40),
         "origin": "Plaza Cumbres",
         "destination": "FIME, Ciudad Universitaria",
-        "driver": ("chofer@parkride.com", "Chofer Demo"),
+        "driver": ("chofer@parkride.com", "Carlos Mendoza"),
         "vehicle": ("Mercedes-Benz OF 1721", "PRB-001", "Azul"),
         "stops": (
             ("Plaza Cumbres", 25.7308, -100.3707),
@@ -189,6 +189,18 @@ def seed_demo(db: Session) -> None:
     """Create or refresh the ten fixed demo routes without duplicating them."""
     for email, name, role in DEMO_ACCOUNTS:
         _upsert_user(db, email, name, role)
+    carpool_user = _upsert_user(
+        db, "carpool@parkride.com", "Valeria Gómez", "passenger"
+    )
+    carpool_user.is_volunteer_driver = True
+    carpool_user.carpool_avenues = ["Av. Constitución", "Av. Colón"]
+    carpool_user.carpool_vehicles = [{
+        "brand": "Kia",
+        "model": "Rio 2022",
+        "color": "Gris",
+        "plate": "PRC-101",
+        "capacity": 3,
+    }]
 
     for definition in ROUTES:
         driver_email, driver_name = definition["driver"]
@@ -223,6 +235,11 @@ def seed_demo(db: Session) -> None:
         route.vehicle_id = vehicle.id
         route.is_active = True
         route.is_available = True
+        route.return_color = "#F97316"
+        route.return_stops = [
+            {"stop_name": name, "latitude": latitude, "longitude": longitude}
+            for name, latitude, longitude in reversed(definition["stops"])
+        ]
         route.stops.clear()
         db.flush()
         for order, (stop_name, latitude, longitude) in enumerate(definition["stops"]):
