@@ -15,15 +15,12 @@ class CodigoQRScreen extends StatefulWidget {
 }
 
 class _CodigoQRScreenState extends State<CodigoQRScreen> {
-  final MobileScannerController _scannerController = MobileScannerController(
-    detectionSpeed: DetectionSpeed.normal,
-    facing: CameraFacing.back,
-    formats: [BarcodeFormat.qrCode],
-  );
+  MobileScannerController? _scannerController;
 
   bool _isProcessing = false;
   bool _cameraReady = false;
   bool _cameraDenied = false;
+  bool _isRequestingCamera = false;
   String? _cameraError;
   DateTime? _lastScanAt;
   TicketValidationResult? _lastValidation;
@@ -36,27 +33,42 @@ class _CodigoQRScreenState extends State<CodigoQRScreen> {
   }
 
   Future<void> _requestCameraPermission() async {
-    var status = await Permission.camera.status;
-    if (!status.isGranted) {
-      status = await Permission.camera.request();
-    }
-    if (!mounted) return;
-    setState(() {
-      _cameraReady = status.isGranted;
-      _cameraDenied = !status.isGranted;
-    });
-    if (status.isGranted) {
-      try {
-        await _scannerController.start();
-      } catch (error) {
-        if (!mounted) return;
-        setState(() {
-          _cameraReady = false;
-          _cameraError = 'No se pudo iniciar la cámara: $error';
-        });
+    if (_isRequestingCamera) return;
+    _isRequestingCamera = true;
+    try {
+      final status = await Permission.camera.request();
+      if (!mounted) return;
+      setState(() {
+        _cameraReady = status.isGranted;
+        _cameraDenied = !status.isGranted;
+        _cameraError = null;
+      });
+      if (status.isGranted) {
+        try {
+          _scannerController?.dispose();
+          _scannerController = MobileScannerController(
+            detectionSpeed: DetectionSpeed.normal,
+            facing: CameraFacing.back,
+            formats: [BarcodeFormat.qrCode],
+          );
+          if (!mounted) {
+            await _scannerController?.dispose();
+            _scannerController = null;
+            return;
+          }
+          setState(() {});
+        } catch (error) {
+          if (!mounted) return;
+          setState(() {
+            _cameraReady = false;
+            _cameraError = 'No se pudo iniciar la cámara: $error';
+          });
+        }
+      } else {
+        await _showCameraSettingsDialog();
       }
-    } else if (status.isPermanentlyDenied) {
-      await _showCameraSettingsDialog();
+    } finally {
+      _isRequestingCamera = false;
     }
   }
 
@@ -88,7 +100,7 @@ class _CodigoQRScreenState extends State<CodigoQRScreen> {
 
   @override
   void dispose() {
-    _scannerController.dispose();
+    _scannerController?.dispose();
     super.dispose();
   }
 
@@ -107,7 +119,7 @@ class _CodigoQRScreenState extends State<CodigoQRScreen> {
     _isProcessing = true;
     setState(() {});
 
-    await _scannerController.stop();
+    await _scannerController?.stop();
 
     TicketValidationResult validation;
     try {
@@ -222,7 +234,16 @@ class _CodigoQRScreenState extends State<CodigoQRScreen> {
       _lastScannedCode = null;
       _isProcessing = false;
     });
-    await _scannerController.start();
+    if (_scannerController == null || !_cameraReady) {
+      await _requestCameraPermission();
+      return;
+    }
+    try {
+      await _scannerController!.start();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _cameraError = 'No se pudo reanudar la cámara: $error');
+    }
   }
 
   @override
@@ -246,9 +267,9 @@ class _CodigoQRScreenState extends State<CodigoQRScreen> {
         child: Stack(
           children: [
             Positioned.fill(
-              child: _cameraReady
+              child: _cameraReady && _scannerController != null
                   ? MobileScanner(
-                      controller: _scannerController,
+                      controller: _scannerController!,
                       onDetect: (capture) {
                         for (final barcode in capture.barcodes) {
                           final value = barcode.rawValue;
