@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS users (
     employee_number VARCHAR(255),
     phone VARCHAR(50),
     shift VARCHAR(50),
+    is_volunteer_driver BOOLEAN NOT NULL DEFAULT FALSE,
+    carpool_avenues JSON NOT NULL DEFAULT '[]',
+    carpool_vehicles JSON NOT NULL DEFAULT '[]',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN NOT NULL DEFAULT TRUE
@@ -39,6 +42,8 @@ CREATE TABLE IF NOT EXISTS routes (
     vehicle_id UUID UNIQUE REFERENCES vehicles(id),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     is_available BOOLEAN NOT NULL DEFAULT TRUE,
+    return_stops JSON NOT NULL DEFAULT '[]',
+    return_color VARCHAR(7) NOT NULL DEFAULT '#F97316',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -13,6 +13,9 @@ class UserModel {
   final bool hasVehicle;
   String? vehicleInfo;
   final String? numEmpleado;
+  final bool isVolunteerDriver;
+  final List<Map<String, dynamic>> carpoolVehicles;
+  final List<String> carpoolAvenues;
 
   UserModel({
     required this.idEmpleado,
@@ -27,6 +30,9 @@ class UserModel {
     this.hasVehicle = false,
     this.vehicleInfo,
     this.numEmpleado,
+    this.isVolunteerDriver = false,
+    this.carpoolVehicles = const [],
+    this.carpoolAvenues = const [],
   })  : departamento = (departamento != null && departamento.trim().isNotEmpty)
             ? departamento
             : (empresa != null && empresa.trim().isNotEmpty)
@@ -56,6 +62,13 @@ class UserModel {
       hasVehicle: map['has_vehicle'] ?? false,
       vehicleInfo: map['vehicle_info'],
       numEmpleado: map['num_empleado']?.toString(),
+      isVolunteerDriver: map['is_volunteer_driver'] == true,
+      carpoolVehicles: (map['carpool_vehicles'] as List? ?? const [])
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList(),
+      carpoolAvenues: (map['carpool_avenues'] as List? ?? const [])
+          .map((item) => item.toString())
+          .toList(),
     );
   }
 
@@ -75,6 +88,9 @@ class UserModel {
       'has_vehicle': hasVehicle,
       'vehicle_info': vehicleInfo,
       'num_empleado': numEmpleado,
+      'is_volunteer_driver': isVolunteerDriver,
+      'carpool_vehicles': carpoolVehicles,
+      'carpool_avenues': carpoolAvenues,
     };
   }
 
@@ -91,6 +107,9 @@ class UserModel {
     bool? hasVehicle,
     String? vehicleInfo,
     String? numEmpleado,
+    bool? isVolunteerDriver,
+    List<Map<String, dynamic>>? carpoolVehicles,
+    List<String>? carpoolAvenues,
   }) {
     return UserModel(
       idEmpleado: idEmpleado ?? this.idEmpleado,
@@ -105,6 +124,9 @@ class UserModel {
       hasVehicle: hasVehicle ?? this.hasVehicle,
       vehicleInfo: vehicleInfo ?? this.vehicleInfo,
       numEmpleado: numEmpleado ?? this.numEmpleado,
+      isVolunteerDriver: isVolunteerDriver ?? this.isVolunteerDriver,
+      carpoolVehicles: carpoolVehicles ?? this.carpoolVehicles,
+      carpoolAvenues: carpoolAvenues ?? this.carpoolAvenues,
     );
   }
 }

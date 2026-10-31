@@ -24,6 +24,7 @@ class _CodigoQRScreenState extends State<CodigoQRScreen> {
   bool _isProcessing = false;
   bool _cameraReady = false;
   bool _cameraDenied = false;
+  String? _cameraError;
   DateTime? _lastScanAt;
   TicketValidationResult? _lastValidation;
   String? _lastScannedCode;
@@ -45,7 +46,15 @@ class _CodigoQRScreenState extends State<CodigoQRScreen> {
       _cameraDenied = !status.isGranted;
     });
     if (status.isGranted) {
-      await _scannerController.start();
+      try {
+        await _scannerController.start();
+      } catch (error) {
+        if (!mounted) return;
+        setState(() {
+          _cameraReady = false;
+          _cameraError = 'No se pudo iniciar la cámara: $error';
+        });
+      }
     } else if (status.isPermanentlyDenied) {
       await _showCameraSettingsDialog();
     }
@@ -250,10 +259,18 @@ class _CodigoQRScreenState extends State<CodigoQRScreen> {
                         }
                       },
                       errorBuilder: (context, error, child) => Center(
-                        child: ElevatedButton.icon(
-                          onPressed: _requestCameraPermission,
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('Reintentar cámara'),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Error de cámara: $error',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.white)),
+                            ElevatedButton.icon(
+                              onPressed: _requestCameraPermission,
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: const Text('Reintentar cámara'),
+                            ),
+                          ],
                         ),
                       ),
                     )
@@ -267,9 +284,10 @@ class _CodigoQRScreenState extends State<CodigoQRScreen> {
                                 size: 56, color: Colors.white70),
                             const SizedBox(height: 12),
                             Text(
-                              _cameraDenied
-                                  ? 'Se requiere permiso de cámara para escanear.'
-                                  : 'Solicitando permiso de cámara...',
+                              _cameraError ??
+                                  (_cameraDenied
+                                      ? 'Se requiere permiso de cámara para escanear.'
+                                      : 'Solicitando permiso de cámara...'),
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                   color: Colors.white,

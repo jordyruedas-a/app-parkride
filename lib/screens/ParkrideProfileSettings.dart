@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import '../services/parkride_state.dart';
+
+import '../services/location_service.dart';
 import '../services/parkride_business_rules.dart';
+import '../services/parkride_state.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/bottom_nav_bar.dart';
 
@@ -13,511 +15,349 @@ class ParkrideProfileSettings extends StatefulWidget {
 }
 
 class _ParkrideProfileSettingsState extends State<ParkrideProfileSettings> {
-  final state = ParkRideState();
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _nameController;
-  late final TextEditingController _phoneController;
-  late final TextEditingController _departmentController;
-  late final TextEditingController _vehicleController;
-  final List<Map<String, String>> _vehicles = [
-    {
-      'marca': 'Toyota',
-      'modelo': 'Corolla',
-      'placa': 'ABC-1234',
-      'tipo': 'Sedán',
-      'aseguradora': 'Sin especificar',
-      'poliza': 'Sin especificar',
-    },
-  ];
+  static const _avenuesByMunicipality = <String, List<String>>{
+    'guadalupe': ['Av. Israel Cavazos', 'Av. Pablo Livas', 'Av. Eloy Cavazos'],
+    'san nicolás': ['Av. Ruiz Cortines', 'Av. Sendero', 'Av. Rómulo Garza'],
+    'apodaca': ['Av. Miguel Alemán', 'Av. Concordia'],
+    'monterrey': [
+      'Av. Constitución',
+      'Av. Colón',
+      'Av. Garza Sada',
+      'Av. Pino Suárez',
+    ],
+  };
 
-  @override
-  void initState() {
-    super.initState();
-    final user = state.currentUser;
-    _nameController = TextEditingController(text: user.nombre);
-    _phoneController = TextEditingController(text: user.telefono);
-    _departmentController = TextEditingController(text: user.departamento);
-    _vehicleController = TextEditingController(text: user.vehicleInfo ?? '');
+  final _state = ParkRideState();
+  bool _saving = false;
+
+  bool get _isRouteDriver =>
+      ParkRideBusinessRules.isDriverRole(_state.currentUser.rol);
+
+  List<Map<String, dynamic>> get _vehicles =>
+      List<Map<String, dynamic>>.from(_state.currentUser.carpoolVehicles);
+
+  Future<void> _saveVolunteer({
+    required List<Map<String, dynamic>> vehicles,
+    required List<String> avenues,
+    required bool enabled,
+  }) async {
+    setState(() => _saving = true);
+    try {
+      await _state.saveVolunteerProfile(
+        vehicles: vehicles,
+        avenues: avenues,
+        enabled: enabled,
+      );
+      if (mounted) setState(() {});
+    } on StateError catch (error) {
+      if (mounted) _showMessage(error.message, error: true);
+    } catch (_) {
+      if (mounted) {
+        _showMessage('No se pudo guardar la configuración. Intenta de nuevo.',
+            error: true);
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
-    _departmentController.dispose();
-    _vehicleController.dispose();
-    super.dispose();
+  void _showMessage(String message, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor:
+          error ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+    ));
   }
 
-  bool get _isDriverProfile {
-    final role = state.currentUser.rol.toLowerCase();
-    return role.contains('chofer') ||
-        role.contains('ruta') ||
-        role.contains('driver');
-  }
-
-  void _saveProfile() {
-    if (!_formKey.currentState!.validate()) return;
-    final user = state.currentUser;
-    state.currentUser = user.copyWith(
-      nombre: _nameController.text.trim(),
-      telefono: _phoneController.text.trim(),
-      departamento: _departmentController.text.trim(),
-      vehicleInfo: _vehicleController.text.trim().isEmpty
-          ? null
-          : _vehicleController.text.trim(),
-    );
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Perfil actualizado correctamente.'),
-        backgroundColor: Color(0xFF22C55E),
+  Future<Map<String, dynamic>?> _vehicleForm(
+      {Map<String, dynamic>? existing}) async {
+    final controllers = <String, TextEditingController>{
+      for (final name in [
+        'brand',
+        'model',
+        'color',
+        'plate',
+        'insurer',
+        'policy'
+      ])
+        name: TextEditingController(text: existing?[name]?.toString() ?? ''),
+    };
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.fromLTRB(
+            20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(existing == null ? 'Agregar vehículo' : 'Editar vehículo',
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            for (final field in [
+              ('brand', 'Marca'),
+              ('model', 'Modelo'),
+              ('color', 'Color'),
+              ('plate', 'Placa / matrícula'),
+              ('insurer', 'Aseguradora'),
+              ('policy', 'Número de póliza'),
+            ]) ...[
+              TextField(
+                  controller: controllers[field.$1],
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(labelText: field.$2)),
+              const SizedBox(height: 8),
+            ],
+            FilledButton(
+              onPressed: () {
+                if (controllers.values
+                    .any((controller) => controller.text.trim().isEmpty)) {
+                  _showMessage('Completa todos los datos del vehículo.',
+                      error: true);
+                  return;
+                }
+                Navigator.pop(context, {
+                  for (final entry in controllers.entries)
+                    entry.key: entry.value.text.trim(),
+                });
+              },
+              child: const Text('Guardar vehículo'),
+            ),
+          ]),
+        ),
       ),
     );
+    for (final controller in controllers.values) {
+      controller.dispose();
+    }
+    return result;
   }
 
-  Future<void> _showVehicleForm() async {
-    final plateController = TextEditingController();
-    final brandController = TextEditingController();
-    final modelController = TextEditingController();
-    final typeController = TextEditingController();
-    final colorController = TextEditingController();
-    final insurerController = TextEditingController();
-    final policyController = TextEditingController();
+  Future<void> _addOrEditVehicle([int? index]) async {
+    final vehicles = _vehicles;
+    final vehicle =
+        await _vehicleForm(existing: index == null ? null : vehicles[index]);
+    if (vehicle == null) return;
+    if (index == null) {
+      vehicles.add(vehicle);
+    } else {
+      vehicles[index] = vehicle;
+    }
+    await _saveVolunteer(
+      vehicles: vehicles,
+      avenues: _state.currentUser.carpoolAvenues,
+      enabled: _state.currentUser.isVolunteerDriver,
+    );
+  }
 
+  Future<void> _configureVolunteer() async {
+    if (_vehicles.isEmpty) {
+      await _addOrEditVehicle();
+      if (_vehicles.isEmpty) return;
+    }
+    final currentLocation =
+        await ParkRideLocationService().getCurrentLocationWithAddress();
+    if (!mounted) return;
+    final address = currentLocation?.address.toLowerCase() ?? '';
+    final zone = _avenuesByMunicipality.keys.firstWhere(
+      (key) => address.contains(key),
+      orElse: () => 'monterrey',
+    );
+    final candidates = _avenuesByMunicipality[zone]!;
+    final selected = _state.currentUser.carpoolAvenues.toSet();
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Center(
-                  child: Text(
-                    'Agregar vehículo',
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: brandController,
-                  decoration: const InputDecoration(labelText: 'Marca'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: modelController,
-                  decoration: const InputDecoration(labelText: 'Modelo'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: plateController,
-                  decoration:
-                      const InputDecoration(labelText: 'Matrícula/Placa'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: typeController,
-                  decoration:
-                      const InputDecoration(labelText: 'Tipo de unidad'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: colorController,
-                  decoration: const InputDecoration(labelText: 'Color'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: insurerController,
-                  decoration: const InputDecoration(labelText: 'Aseguradora'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: policyController,
-                  decoration:
-                      const InputDecoration(labelText: 'Número de póliza'),
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (brandController.text.trim().isEmpty ||
-                          modelController.text.trim().isEmpty ||
-                          plateController.text.trim().isEmpty ||
-                          typeController.text.trim().isEmpty) {
-                        return;
-                      }
-                      _vehicles.add({
-                        'marca': brandController.text.trim(),
-                        'modelo': modelController.text.trim(),
-                        'placa': plateController.text.trim(),
-                        'tipo': typeController.text.trim(),
-                        'color': colorController.text.trim().isEmpty
-                            ? 'Sin especificar'
-                            : colorController.text.trim(),
-                        'aseguradora': insurerController.text.trim().isEmpty
-                            ? 'Sin especificar'
-                            : insurerController.text.trim(),
-                        'poliza': policyController.text.trim().isEmpty
-                            ? 'Sin especificar'
-                            : policyController.text.trim(),
-                      });
-                      setState(() {});
-                      Navigator.pop(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF22C55E),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text('Guardar vehículo'),
-                  ),
-                ),
-              ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: EdgeInsets.fromLTRB(
+              20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(
+                'Ruta voluntaria: ${zone == 'monterrey' ? 'Monterrey Centro' : zone}',
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(currentLocation?.address ?? 'No se pudo obtener ubicación.'),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              children: candidates
+                  .map((avenue) => FilterChip(
+                        label: Text(avenue),
+                        selected: selected.contains(avenue),
+                        onSelected: (active) => setModalState(() {
+                          active
+                              ? selected.add(avenue)
+                              : selected.remove(avenue);
+                        }),
+                      ))
+                  .toList(),
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildProfileField(String label, String value) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF64748B))),
-          const SizedBox(height: 6),
-          Text(value,
-              style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1E293B))),
-        ],
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () async {
+                if (selected.length < 2) {
+                  _showMessage('Selecciona al menos dos avenidas.',
+                      error: true);
+                  return;
+                }
+                Navigator.pop(context);
+                await _saveVolunteer(
+                  vehicles: _vehicles,
+                  avenues: selected.toList(),
+                  enabled: true,
+                );
+                if (mounted) _showMessage('Conductor voluntario activado.');
+              },
+              icon: const Icon(Icons.volunteer_activism_rounded),
+              label: const Text('Activar Conductor Voluntario'),
+            ),
+          ]),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = state.currentUser;
-
+    final user = _state.currentUser;
+    final greenPoints = (_state.totalCo2SavingsKg * 100).round();
     return Scaffold(
-      resizeToAvoidBottomInset: true,
       backgroundColor: const Color(0xFFF3F5F9),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Mi Perfil',
-          style:
-              TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Mi Perfil'),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit_rounded, color: Color(0xFF1E293B)),
-            onPressed: () {
-              showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.white,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                ),
-                builder: (_) => Padding(
-                  padding: EdgeInsets.only(
-                    left: 20,
-                    right: 20,
-                    top: 20,
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Center(
-                            child: Text(
-                              'Editar perfil',
-                              style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1E293B)),
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          TextFormField(
-                            controller: _nameController,
-                            decoration: const InputDecoration(
-                                labelText: 'Nombre completo'),
-                            validator: (value) =>
-                                value == null || value.trim().isEmpty
-                                    ? 'Nombre requerido'
-                                    : null,
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _phoneController,
-                            decoration:
-                                const InputDecoration(labelText: 'Teléfono'),
-                            validator: (value) =>
-                                value == null || value.trim().isEmpty
-                                    ? 'Teléfono requerido'
-                                    : null,
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _departmentController,
-                            decoration: const InputDecoration(
-                                labelText: 'Empresa / Departamento'),
-                          ),
-                          const SizedBox(height: 12),
-                          if (_isDriverProfile)
-                            TextFormField(
-                              controller: _vehicleController,
-                              decoration: const InputDecoration(
-                                  labelText: 'Vehículo / Unidad'),
-                            ),
-                          const SizedBox(height: 18),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                _saveProfile();
-                                Navigator.pop(context);
-                              },
-                              icon: const Icon(Icons.save_rounded),
-                              label: const Text('Guardar cambios'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF22C55E),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
+            icon: const Icon(Icons.add_circle_outline_rounded),
+            tooltip: 'Agregar vehículo',
+            onPressed: _isRouteDriver ? null : _addOrEditVehicle,
+          )
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+        child: ListView(padding: const EdgeInsets.all(20), children: [
+          Card(
+            child: ListTile(
+              leading:
+                  const AppLogo(size: 56, borderRadius: 16, showBorder: true),
+              title: Text(user.nombre,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('${user.correo}\n${user.rol}'),
+              isThreeLine: true,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Card(
+            color: const Color(0xFFDCFCE7),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(children: [
+                const Icon(Icons.eco_rounded,
+                    color: Color(0xFF15803D), size: 38),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '¡Gracias por cuidar el planeta!\nHas ahorrado '
+                    '${_state.totalCo2SavingsKg.toStringAsFixed(1)} kg de CO2\n'
+                    'Has ganado $greenPoints Puntos Verdes',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    const AppLogo(size: 64, borderRadius: 18, showBorder: true),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user.nombre,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                          Text(
-                            'ID: ${user.idEmpleado}',
-                            style: const TextStyle(
-                                color: Color(0xFF64748B), fontSize: 13),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            user.rol,
-                            style: const TextStyle(
-                              color: Color(0xFF22C55E),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
+              ]),
+            ),
+          ),
+          if (!_isRouteDriver) ...[
+            const SizedBox(height: 18),
+            Card(
+              child: SwitchListTile(
+                title: const Text('Modo Conductor Voluntario',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text(user.isVolunteerDriver
+                    ? 'Activo: ${user.carpoolAvenues.join(', ')}'
+                    : 'Comparte tu ruta y gana Puntos Verdes.'),
+                value: user.isVolunteerDriver,
+                onChanged: _saving
+                    ? null
+                    : (enabled) async {
+                        if (enabled) {
+                          await _configureVolunteer();
+                        } else {
+                          await _saveVolunteer(
+                            vehicles: _vehicles,
+                            avenues: user.carpoolAvenues,
+                            enabled: false,
+                          );
+                        }
+                      },
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(children: [
+              const Expanded(
+                  child: Text('Mis Vehículos',
+                      style: TextStyle(
+                          fontSize: 17, fontWeight: FontWeight.bold))),
+              TextButton.icon(
+                  onPressed: _addOrEditVehicle,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Agregar vehículo')),
+            ]),
+            if (_vehicles.isEmpty)
+              const Card(
+                  child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text('Aún no registras vehículos.')))
+            else
+              ..._vehicles.asMap().entries.map((entry) => Card(
+                    child: ListTile(
+                      title: Text(
+                          '${entry.value['brand']} ${entry.value['model']}'),
+                      subtitle: Text(
+                          '${entry.value['plate']} · ${entry.value['color']}\n${entry.value['insurer']} · Póliza ${entry.value['policy']}'),
+                      isThreeLine: true,
+                      trailing: PopupMenuButton<String>(
+                        onSelected: (action) async {
+                          final vehicles = _vehicles;
+                          if (action == 'edit') {
+                            await _addOrEditVehicle(entry.key);
+                          } else {
+                            vehicles.removeAt(entry.key);
+                            await _saveVolunteer(
+                              vehicles: vehicles,
+                              avenues: user.carpoolAvenues,
+                              enabled: false,
+                            );
+                          }
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(value: 'edit', child: Text('Editar')),
+                          PopupMenuItem(
+                              value: 'delete', child: Text('Eliminar')),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Datos personales',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _buildProfileField('Nombre', user.nombre),
-              _buildProfileField('Correo', user.correo),
-              _buildProfileField('Teléfono', user.telefono),
-              _buildProfileField('Empresa', user.empresa),
-              if (_isDriverProfile) ...[
-                const SizedBox(height: 28),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Mis Vehículos',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E293B),
-                        ),
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed: _showVehicleForm,
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text('Agregar Vehículo'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (_vehicles.isEmpty)
-                  const Text('No hay vehículos registrados todavía.')
-                else
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: _vehicles.map((vehicle) {
-                      return Container(
-                        width: 180,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${vehicle['marca'] ?? ''} ${vehicle['modelo'] ?? 'Vehículo'}'
-                                  .trim(),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1E293B)),
-                            ),
-                            const SizedBox(height: 8),
-                            Text('Placa: ${vehicle['placa'] ?? '-'}'),
-                            Text('Tipo: ${vehicle['tipo'] ?? '-'}'),
-                            Text(
-                                'Color: ${vehicle['color'] ?? 'Sin especificar'}'),
-                            Text(
-                                'Aseguradora: ${vehicle['aseguradora'] ?? 'Sin especificar'}'),
-                            Text(
-                                'Póliza: ${vehicle['poliza'] ?? 'Sin especificar'}'),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-              ],
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.pushNamed(context, '/ReportesESG'),
-                  icon: const Icon(Icons.report_problem_outlined),
-                  label: const Text('Reportar incidencia'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFB45309),
-                    side: const BorderSide(color: Color(0xFFF59E0B)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pushNamedAndRemoveUntil(
-                        context, '/ParkrideLogin', (route) => false);
-                  },
-                  icon: const Icon(Icons.logout, color: Colors.red),
-                  label: const Text(
-                    'Cerrar Sesión',
-                    style: TextStyle(
-                        color: Colors.red, fontWeight: FontWeight.bold),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.red),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                  ),
-                ),
-              ),
-            ],
+                  )),
+          ],
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.pushNamed(context, '/ReportesESG'),
+            icon: const Icon(Icons.report_problem_outlined),
+            label: const Text('Reportar Incidencia'),
           ),
-        ),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                context, '/ParkrideLogin', (route) => false),
+            icon: const Icon(Icons.logout, color: Colors.red),
+            label: const Text('Cerrar sesión',
+                style: TextStyle(color: Colors.red)),
+          ),
+        ]),
       ),
-      bottomNavigationBar: ParkRideBusinessRules.isDriverRole(user.rol)
+      bottomNavigationBar: _isRouteDriver
           ? const ParkRideBottomNavBar(
-              currentIndex: 3,
-              items: ParkRideBottomNavBar.driverItems,
-            )
+              currentIndex: 2, items: ParkRideBottomNavBar.driverItems)
           : const ParkRideBottomNavBar(currentIndex: 3),
     );
   }

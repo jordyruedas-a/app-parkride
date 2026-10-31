@@ -17,12 +17,8 @@ class ParkRideBottomNavBar extends StatelessWidget {
         icon: Icons.route_rounded, label: 'Mi Ruta', route: '/ChoferRuta'),
     ParkRideNavItem(
         icon: Icons.space_dashboard_rounded,
-        label: 'Dashboard',
+        label: 'Mis Viajes',
         route: '/ChoferDashboard'),
-    ParkRideNavItem(
-        icon: Icons.report_problem_rounded,
-        label: 'Reportes',
-        route: '/ReportesESG'),
     ParkRideNavItem(
         icon: Icons.person_rounded,
         label: 'Perfil',

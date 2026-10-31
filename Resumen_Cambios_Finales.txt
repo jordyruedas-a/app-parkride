@@ -1,0 +1,37 @@
+PARKRIDE - CAMBIOS FINALES
+==========================
+
+1. Cámara QR
+   - Android e iOS declaran permisos de cámara.
+   - El escáner solicita Permission.camera antes de iniciarse, abre Ajustes
+     cuando el permiso queda bloqueado, muestra fallas del plugin en pantalla
+     y libera MobileScannerController al salir.
+
+2. Navegación de chofer de ruta
+   - El menú se redujo a Mi Ruta, Mis Viajes y Mi Perfil.
+   - Reportar Incidencia quedó como acción secundaria dentro del perfil.
+
+3. Conductor voluntario y GIS
+   - Pasajeros pueden registrar varios vehículos con marca, modelo, color,
+     placa, aseguradora y póliza.
+   - El modo Conductor Voluntario exige un vehículo y dos avenidas.
+   - La ubicación del equipo determina avenidas por municipio: Monterrey,
+     Guadalupe, San Nicolás o Apodaca.
+   - Vehículos, avenidas y estado del conductor se guardan mediante PUT /users/{id}.
+
+4. Eco-Friendly
+   - El perfil muestra CO2 evitado y Puntos Verdes calculados a partir de
+     viajes compartidos completados en la sesión.
+
+5. Datos y despliegue
+   - La semilla registra 5 camiones, 5 vans, sus rutas, vehículos y choferes,
+     más una conductora voluntaria.
+   - Credenciales de demostración: consultar Credenciales_ParkRide.txt.
+   - Render redespliega automáticamente después de push a main. Para forzar un
+     despliegue manual, usa "Manual Deploy > Deploy latest commit" en Render.
+
+Prueba en celular:
+1. Instala build/app/outputs/flutter-apk/app-release.apk.
+2. Concede ubicación y cámara desde los permisos de Android.
+3. Inicia sesión, abre Perfil y configura Conductor Voluntario.
+4. Como chofer de ruta, abre el escáner QR y prueba un pase generado.

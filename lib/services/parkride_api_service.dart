@@ -84,6 +84,17 @@ class ParkRideApiService {
     return _decodeList(response);
   }
 
+  Future<Map<String, dynamic>> updateCurrentUser(
+      String userId, Map<String, dynamic> payload) async {
+    final response = await _request(
+      'PUT',
+      '/users/$userId',
+      authenticated: true,
+      body: payload,
+    );
+    return _decodeObject(response);
+  }
+
   Future<QrTicket> createTrip({
     required String routeId,
     required String transportType,
@@ -163,6 +174,10 @@ class ParkRideApiService {
         'GET' => await http.get(uri, headers: headers).timeout(_requestTimeout),
         'POST' => await http
             .post(uri,
+                headers: headers, body: body == null ? null : jsonEncode(body))
+            .timeout(_requestTimeout),
+        'PUT' => await http
+            .put(uri,
                 headers: headers, body: body == null ? null : jsonEncode(body))
             .timeout(_requestTimeout),
         _ => throw ArgumentError.value(

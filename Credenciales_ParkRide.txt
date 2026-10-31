@@ -1,0 +1,22 @@
+CREDENCIALES DE PRUEBA PARKRIDE
+===============================
+
+Todas las cuentas de desarrollo usan la contraseña: 123
+
+| Rol | Nombre | Correo |
+| Pasajero | Sofía Torres | pasajero@parkride.com |
+| Conductor voluntario | Valeria Gómez | carpool@parkride.com |
+| Chofer camión 1 | Carlos Mendoza | chofer@parkride.com |
+| Chofer camión 2 | María Garza | chofer.sannicolas@parkride.com |
+| Chofer camión 3 | Jorge Hernández | chofer.guadalupe@parkride.com |
+| Chofer camión 4 | Lucía Martínez | chofer.apodaca@parkride.com |
+| Chofer camión 5 | Roberto Salinas | chofer.santacatarina@parkride.com |
+| Chofer van 1 | Ana Torres | chofer.centro@parkride.com |
+| Chofer van 2 | Carlos Peña | chofer.contry@parkride.com |
+| Chofer van 3 | Fernanda Ríos | chofer.escobedo@parkride.com |
+| Chofer van 4 | Diego Flores | chofer.juarez@parkride.com |
+| Chofer van 5 | Sofía Villarreal | chofer.garcia@parkride.com |
+| Supervisor | Mariana Saldaña | supervisor@parkride.com |
+
+Estas cuentas son exclusivamente para demostración. Cámbialas o elimínalas
+antes de cualquier despliegue público.

@@ -422,8 +422,39 @@ class ParkRideState extends ChangeNotifier {
       turno: (user['shift'] ?? 'Turno Matutino').toString(),
       saldoCreditos: 450,
       rol: normalizeRole(user['role']?.toString()),
-      hasVehicle: ParkRideBusinessRules.isDriverRole(user['role']?.toString()),
+      hasVehicle: (user['carpool_vehicles'] as List? ?? const []).isNotEmpty ||
+          ParkRideBusinessRules.isDriverRole(user['role']?.toString()),
+      isVolunteerDriver: user['is_volunteer_driver'] == true,
+      carpoolVehicles: (user['carpool_vehicles'] as List? ?? const [])
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList(),
+      carpoolAvenues: (user['carpool_avenues'] as List? ?? const [])
+          .map((item) => item.toString())
+          .toList(),
     );
+  }
+
+  Future<void> saveVolunteerProfile({
+    required List<Map<String, dynamic>> vehicles,
+    required List<String> avenues,
+    required bool enabled,
+  }) async {
+    if (enabled && vehicles.isEmpty) {
+      throw StateError(
+          'Registra al menos un vehículo para ser conductor voluntario.');
+    }
+    if (enabled && avenues.length < 2) {
+      throw StateError('Selecciona al menos dos avenidas de cobertura.');
+    }
+    final response =
+        await _apiService.updateCurrentUser(currentUser.idEmpleado, {
+      'is_volunteer_driver': enabled,
+      'carpool_vehicles': vehicles,
+      'carpool_avenues': avenues,
+    });
+    final updated = _userFromApi(response);
+    currentUser = updated.copyWith(rol: normalizeRole(updated.rol));
+    notifyListeners();
   }
 
   void acceptDriverTrip() {
