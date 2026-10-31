@@ -45,6 +45,9 @@ class UserUpdate(BaseModel):
     is_volunteer_driver: bool | None = None
     carpool_avenues: list[str] | None = None
     carpool_vehicles: list[dict] | None = None
+    is_available_for_carpooling: bool | None = None
+    carpool_destination: str | None = None
+    carpool_route: list[dict] | None = None
 
     @field_validator("password")
     @classmethod
@@ -69,6 +72,9 @@ class UserResponse(BaseModel):
     is_volunteer_driver: bool
     carpool_avenues: list[str] = Field(default_factory=list)
     carpool_vehicles: list[dict] = Field(default_factory=list)
+    is_available_for_carpooling: bool
+    carpool_destination: str | None = None
+    carpool_route: list[dict] = Field(default_factory=list)
 
 
 class AuthLogin(BaseModel):

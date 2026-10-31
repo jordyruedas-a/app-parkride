@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS users (
     is_volunteer_driver BOOLEAN NOT NULL DEFAULT FALSE,
     carpool_avenues JSON NOT NULL DEFAULT '[]',
     carpool_vehicles JSON NOT NULL DEFAULT '[]',
+    is_available_for_carpooling BOOLEAN NOT NULL DEFAULT FALSE,
+    carpool_destination VARCHAR(255),
+    carpool_route JSON NOT NULL DEFAULT '[]',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN NOT NULL DEFAULT TRUE

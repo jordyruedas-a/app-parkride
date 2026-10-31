@@ -17,6 +17,8 @@ class CampusFlutterMap extends StatefulWidget {
   final List<LatLng> routePoints;
   final List<ParkRideRoute> routes;
   final String? transportFilter;
+  final List<LatLng> volunteerRoute;
+  final bool volunteerAvailable;
 
   const CampusFlutterMap({
     super.key,
@@ -31,6 +33,8 @@ class CampusFlutterMap extends StatefulWidget {
     this.routePoints = const [],
     this.routes = const [],
     this.transportFilter,
+    this.volunteerRoute = const [],
+    this.volunteerAvailable = false,
   });
 
   @override
@@ -368,6 +372,12 @@ class _CampusFlutterMapState extends State<CampusFlutterMap> {
 
     final polylines = <Polyline>[
       ...routePolylines,
+      if (widget.volunteerAvailable && widget.volunteerRoute.length >= 2)
+        Polyline(
+          points: widget.volunteerRoute,
+          strokeWidth: 5.5,
+          color: const Color(0xFF9333EA),
+        ),
       if (polylinePoints.isNotEmpty)
         Polyline(
           points: polylinePoints,

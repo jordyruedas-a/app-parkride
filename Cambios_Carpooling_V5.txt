@@ -1,0 +1,18 @@
+CARPOOLING V5
+=============
+
+- El botón Carpooling de Inicio abre un BottomSheet al 80%; no navega a
+  pantallas de rutas fijas de camión o van.
+- El panel obtiene ubicación actual, propone avenidas por municipio, exige dos
+  avenidas y permite elegir Terminal A o Terminal B.
+- RoutingService solicita a OSRM una ruta real por calles. La geometría se
+  guarda en el usuario y se muestra en el mapa principal en color morado.
+- La base de datos conserva disponibilidad, destino y geometría de Carpooling:
+  is_available_for_carpooling, carpool_destination y carpool_route.
+- Para desconectar, toca Carpooling mientras el modo está activo.
+
+Prueba:
+1. Registra un vehículo en Perfil.
+2. Desde Inicio toca Carpooling y concede ubicación.
+3. Elige dos avenidas, una terminal y activa la ruta.
+4. Confirma la polilínea morada y el botón de desconexión.

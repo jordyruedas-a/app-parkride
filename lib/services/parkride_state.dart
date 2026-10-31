@@ -178,6 +178,37 @@ class ParkRideState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> activateVolunteerRoute({
+    required List<String> avenues,
+    required String destination,
+    required List<LatLng> route,
+  }) async {
+    final response =
+        await _apiService.updateCurrentUser(currentUser.idEmpleado, {
+      'is_volunteer_driver': true,
+      'is_available_for_carpooling': true,
+      'carpool_avenues': avenues,
+      'carpool_destination': destination,
+      'carpool_route': route
+          .map((point) =>
+              {'latitude': point.latitude, 'longitude': point.longitude})
+          .toList(),
+    });
+    final updated = _userFromApi(response);
+    currentUser = updated.copyWith(rol: normalizeRole(updated.rol));
+    notifyListeners();
+  }
+
+  Future<void> deactivateVolunteerRoute() async {
+    final response =
+        await _apiService.updateCurrentUser(currentUser.idEmpleado, {
+      'is_available_for_carpooling': false,
+    });
+    final updated = _userFromApi(response);
+    currentUser = updated.copyWith(rol: normalizeRole(updated.rol));
+    notifyListeners();
+  }
+
   Future<void> registerUser({
     required String nombre,
     required String email,
@@ -431,6 +462,13 @@ class ParkRideState extends ChangeNotifier {
       carpoolAvenues: (user['carpool_avenues'] as List? ?? const [])
           .map((item) => item.toString())
           .toList(),
+      isAvailableForCarpooling: user['is_available_for_carpooling'] == true,
+      carpoolDestination: user['carpool_destination']?.toString(),
+      carpoolRoute: (user['carpool_route'] as List? ?? const []).map((point) {
+        final item = Map<String, dynamic>.from(point as Map);
+        return LatLng((item['latitude'] as num).toDouble(),
+            (item['longitude'] as num).toDouble());
+      }).toList(),
     );
   }
 

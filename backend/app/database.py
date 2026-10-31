@@ -40,6 +40,9 @@ def _add_missing_route_columns() -> None:
         "is_volunteer_driver": "BOOLEAN NOT NULL DEFAULT FALSE",
         "carpool_avenues": "JSON NOT NULL DEFAULT '[]'",
         "carpool_vehicles": "JSON NOT NULL DEFAULT '[]'",
+        "is_available_for_carpooling": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "carpool_destination": "VARCHAR(255)",
+        "carpool_route": "JSON NOT NULL DEFAULT '[]'",
     }
     with engine.begin() as connection:
         for name, definition in user_additions.items():

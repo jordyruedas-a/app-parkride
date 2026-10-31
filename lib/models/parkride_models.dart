@@ -16,6 +16,9 @@ class UserModel {
   final bool isVolunteerDriver;
   final List<Map<String, dynamic>> carpoolVehicles;
   final List<String> carpoolAvenues;
+  final bool isAvailableForCarpooling;
+  final String? carpoolDestination;
+  final List<LatLng> carpoolRoute;
 
   UserModel({
     required this.idEmpleado,
@@ -33,6 +36,9 @@ class UserModel {
     this.isVolunteerDriver = false,
     this.carpoolVehicles = const [],
     this.carpoolAvenues = const [],
+    this.isAvailableForCarpooling = false,
+    this.carpoolDestination,
+    this.carpoolRoute = const [],
   })  : departamento = (departamento != null && departamento.trim().isNotEmpty)
             ? departamento
             : (empresa != null && empresa.trim().isNotEmpty)
@@ -69,6 +75,13 @@ class UserModel {
       carpoolAvenues: (map['carpool_avenues'] as List? ?? const [])
           .map((item) => item.toString())
           .toList(),
+      isAvailableForCarpooling: map['is_available_for_carpooling'] == true,
+      carpoolDestination: map['carpool_destination']?.toString(),
+      carpoolRoute: (map['carpool_route'] as List? ?? const []).map((point) {
+        final item = Map<String, dynamic>.from(point as Map);
+        return LatLng((item['latitude'] as num).toDouble(),
+            (item['longitude'] as num).toDouble());
+      }).toList(),
     );
   }
 
@@ -91,6 +104,12 @@ class UserModel {
       'is_volunteer_driver': isVolunteerDriver,
       'carpool_vehicles': carpoolVehicles,
       'carpool_avenues': carpoolAvenues,
+      'is_available_for_carpooling': isAvailableForCarpooling,
+      'carpool_destination': carpoolDestination,
+      'carpool_route': carpoolRoute
+          .map((point) =>
+              {'latitude': point.latitude, 'longitude': point.longitude})
+          .toList(),
     };
   }
 
@@ -110,6 +129,9 @@ class UserModel {
     bool? isVolunteerDriver,
     List<Map<String, dynamic>>? carpoolVehicles,
     List<String>? carpoolAvenues,
+    bool? isAvailableForCarpooling,
+    String? carpoolDestination,
+    List<LatLng>? carpoolRoute,
   }) {
     return UserModel(
       idEmpleado: idEmpleado ?? this.idEmpleado,
@@ -127,6 +149,10 @@ class UserModel {
       isVolunteerDriver: isVolunteerDriver ?? this.isVolunteerDriver,
       carpoolVehicles: carpoolVehicles ?? this.carpoolVehicles,
       carpoolAvenues: carpoolAvenues ?? this.carpoolAvenues,
+      isAvailableForCarpooling:
+          isAvailableForCarpooling ?? this.isAvailableForCarpooling,
+      carpoolDestination: carpoolDestination ?? this.carpoolDestination,
+      carpoolRoute: carpoolRoute ?? this.carpoolRoute,
     );
   }
 }

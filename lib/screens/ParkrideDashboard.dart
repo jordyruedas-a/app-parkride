@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../models/parkride_models.dart';
 import '../services/location_service.dart';
 import '../services/parkride_state.dart';
+import '../services/routing_service.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/campus_flutter_map.dart';
@@ -27,6 +28,11 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
   String? _transportFilter;
   String _originLabel = 'Obteniendo ubicación actual...';
   StreamSubscription<ParkRideCurrentLocation>? _locationSubscription;
+
+  static const _terminals = <String, LatLng>{
+    'Terminal A': LatLng(25.7786, -100.1074),
+    'Terminal B': LatLng(25.7796, -100.1063),
+  };
 
   @override
   void initState() {
@@ -229,6 +235,132 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
     );
   }
 
+  Future<void> _showVolunteerRouteSheet() async {
+    if (state.currentUser.carpoolVehicles.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content:
+            Text('Registra un vehículo en Perfil antes de activar Carpooling.'),
+      ));
+      return;
+    }
+    final location =
+        await ParkRideLocationService().getCurrentLocationWithAddress();
+    if (!mounted || location == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Activa tu ubicación para crear la ruta.')));
+      }
+      return;
+    }
+    final address = location.address.toLowerCase();
+    final avenues = address.contains('guadalupe')
+        ? ['Av. Pablo Livas', 'Av. Israel Cavazos', 'Av. Eloy Cavazos']
+        : address.contains('nicolás')
+            ? ['Av. López Mateos', 'Av. Ruiz Cortines', 'Av. Sendero']
+            : [
+                'Av. Constitución',
+                'Av. Colón',
+                'Av. Garza Sada',
+                'Av. Pino Suárez'
+              ];
+    final selected = state.currentUser.carpoolAvenues.toSet();
+    var terminal = state.currentUser.carpoolDestination ?? 'Terminal A';
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => SizedBox(
+          height: MediaQuery.of(context).size.height * .8,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Center(
+                  child: Text('Configurar Carpooling',
+                      style: TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold))),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.my_location_rounded,
+                    color: Color(0xFF22C55E)),
+                title: const Text('Origen actual'),
+                subtitle: Text(location.address),
+              ),
+              const Text('Avenidas que cubrirás (elige al menos 2)',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: avenues
+                      .map((avenue) => ChoiceChip(
+                          label: Text(avenue),
+                          selected: selected.contains(avenue),
+                          onSelected: (active) => setModalState(() {
+                                active
+                                    ? selected.add(avenue)
+                                    : selected.remove(avenue);
+                              })))
+                      .toList()),
+              const SizedBox(height: 20),
+              DropdownButtonFormField<String>(
+                value: terminal,
+                decoration: const InputDecoration(labelText: 'Destino'),
+                items: _terminals.keys
+                    .map((value) =>
+                        DropdownMenuItem(value: value, child: Text(value)))
+                    .toList(),
+                onChanged: (value) => setModalState(() => terminal = value!),
+              ),
+              const Spacer(),
+              SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.route_rounded),
+                    label: const Text('Activar Ruta de Carpooling'),
+                    onPressed: () async {
+                      if (selected.length < 2) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content:
+                                    Text('Selecciona al menos dos avenidas.')));
+                        return;
+                      }
+                      final route = await RoutingService.getRoutePoints(
+                          location.coordinates, _terminals[terminal]!);
+                      if (route.length < 2) {
+                        if (context.mounted)
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      'No se pudo trazar la ruta por calles.')));
+                        return;
+                      }
+                      await state.activateVolunteerRoute(
+                          avenues: selected.toList(),
+                          destination: terminal,
+                          route: route);
+                      if (context.mounted) Navigator.pop(context);
+                      if (mounted)
+                        ScaffoldMessenger.of(this.context).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'Modo Carpooling activado. Los pasajeros cercanos pueden verte.'),
+                                backgroundColor: Color(0xFF22C55E)));
+                    },
+                  )),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _requestTripDirect() async {
     if (selectedOrigen == null ||
         selectedDestino == null ||
@@ -302,6 +434,8 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
                 showDriverLocation: true,
                 routes: state.routes,
                 transportFilter: _transportFilter,
+                volunteerRoute: user.carpoolRoute,
+                volunteerAvailable: user.isAvailableForCarpooling,
               ),
             ),
 
@@ -369,14 +503,18 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
                             ],
                           ),
                         ),
-                        // Botón de cambio rápido a Modo Conductor
                         OutlinedButton.icon(
-                          onPressed: () =>
-                              Navigator.pushNamed(context, '/ChoferDashboard'),
-                          icon: const Icon(Icons.directions_bus,
-                              size: 16, color: Color(0xFF1E293B)),
+                          onPressed: user.isAvailableForCarpooling
+                              ? () async => state.deactivateVolunteerRoute()
+                              : _showVolunteerRouteSheet,
+                          icon: Icon(
+                              user.isAvailableForCarpooling
+                                  ? Icons.power_settings_new
+                                  : Icons.volunteer_activism_rounded,
+                              size: 16,
+                              color: Color(0xFF1E293B)),
                           label: const Text(
-                            "Chofer",
+                            "Carpooling",
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
