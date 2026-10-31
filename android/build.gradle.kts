@@ -1,3 +1,5 @@
+import com.android.build.api.dsl.LibraryExtension
+
 allprojects {
     repositories {
         google()
@@ -17,6 +19,25 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(":app")
+}
+subprojects {
+    pluginManager.withPlugin("com.android.library") {
+        extensions.configure<LibraryExtension> {
+            compileSdk = 36
+        }
+    }
+}
+subprojects {
+    val configureCompileSdk = {
+        extensions.findByType<LibraryExtension>()?.compileSdk = 36
+    }
+    if (state.executed) {
+        configureCompileSdk()
+    } else {
+        afterEvaluate {
+            configureCompileSdk()
+        }
+    }
 }
 
 tasks.register<Delete>("clean") {

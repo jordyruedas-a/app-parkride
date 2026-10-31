@@ -45,15 +45,23 @@ class _SolicitarViajeState extends State<SolicitarViaje> {
 
     setState(() => isSubmitting = true);
 
-    await state.createTripRequest(
-      origen: origen,
-      destino: destino,
-      option: selectedOption!,
-    );
-
-    if (mounted) {
-      setState(() => isSubmitting = false);
-      Navigator.pushReplacementNamed(context, '/ViajeEnCurso');
+    try {
+      await state.createTripRequest(
+        origen: origen,
+        destino: destino,
+        option: selectedOption!,
+      );
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/ViajeEnCurso');
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudo crear el viaje: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => isSubmitting = false);
     }
   }
 

@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../services/supabase_service.dart';
+import '../services/parkride_api_service.dart';
 
 class CodigoQRScreen extends StatefulWidget {
   const CodigoQRScreen({super.key});
@@ -20,9 +22,32 @@ class _CodigoQRScreenState extends State<CodigoQRScreen> {
   );
 
   bool _isProcessing = false;
+  bool _cameraReady = false;
+  bool _cameraDenied = false;
   DateTime? _lastScanAt;
   TicketValidationResult? _lastValidation;
   String? _lastScannedCode;
+
+  @override
+  void initState() {
+    super.initState();
+    _requestCameraPermission();
+  }
+
+  Future<void> _requestCameraPermission() async {
+    var status = await Permission.camera.status;
+    if (!status.isGranted) {
+      status = await Permission.camera.request();
+    }
+    if (!mounted) return;
+    setState(() {
+      _cameraReady = status.isGranted;
+      _cameraDenied = !status.isGranted;
+    });
+    if (status.isGranted) {
+      await _scannerController.start();
+    }
+  }
 
   @override
   void dispose() {
@@ -47,13 +72,23 @@ class _CodigoQRScreenState extends State<CodigoQRScreen> {
 
     await _scannerController.stop();
 
-    final validation = await SupabaseService().validateTicketCode(cleanedValue);
+    TicketValidationResult validation;
+    try {
+      await ParkRideApiService.instance.validateQr(cleanedValue);
+      validation = const TicketValidationResult(
+        isValid: true,
+        title: 'Acceso autorizado',
+        message: 'El pase pertenece a esta ruta y quedó registrado.',
+      );
+    } on ParkRideApiException catch (error) {
+      validation = TicketValidationResult(
+        isValid: false,
+        title: 'Acceso denegado',
+        message: error.message,
+      );
+    }
 
     if (!mounted) return;
-
-    if (validation.isValid) {
-      await SupabaseService().markTicketAsUsed(cleanedValue);
-    }
 
     setState(() {
       _lastValidation = validation;
@@ -174,55 +209,54 @@ class _CodigoQRScreenState extends State<CodigoQRScreen> {
         child: Stack(
           children: [
             Positioned.fill(
-              child: MobileScanner(
-                controller: _scannerController,
-                onDetect: (capture) {
-                  final List<Barcode> barcodes = capture.barcodes;
-                  for (final barcode in barcodes) {
-                    final value = barcode.rawValue;
-                    if (value != null && value.isNotEmpty) {
-                      _processScannedCode(value);
-                      break;
-                    }
-                  }
-                },
-                errorBuilder: (context, error, child) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.camera_alt_rounded,
-                              size: 54, color: Colors.white70),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'No se pudo acceder a la cámara',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Revisa los permisos de cámara en Android o iOS y vuelve a intentar.',
-                            style: const TextStyle(
-                                color: Colors.white70, fontSize: 13),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 18),
-                          ElevatedButton.icon(
-                            onPressed: _resumeScanning,
-                            icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('Reintentar'),
-                          ),
-                        ],
+              child: _cameraReady
+                  ? MobileScanner(
+                      controller: _scannerController,
+                      onDetect: (capture) {
+                        for (final barcode in capture.barcodes) {
+                          final value = barcode.rawValue;
+                          if (value != null && value.isNotEmpty) {
+                            _processScannedCode(value);
+                            break;
+                          }
+                        }
+                      },
+                      errorBuilder: (context, error, child) => Center(
+                        child: ElevatedButton.icon(
+                          onPressed: _requestCameraPermission,
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Reintentar cámara'),
+                        ),
+                      ),
+                    )
+                  : Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.camera_alt_outlined,
+                                size: 56, color: Colors.white70),
+                            const SizedBox(height: 12),
+                            Text(
+                              _cameraDenied
+                                  ? 'Se requiere permiso de cámara para escanear.'
+                                  : 'Solicitando permiso de cámara...',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 12),
+                            if (_cameraDenied)
+                              ElevatedButton(
+                                onPressed: _requestCameraPermission,
+                                child: const Text('Permitir cámara'),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                  );
-                },
-              ),
             ),
             Positioned(
               top: 18,

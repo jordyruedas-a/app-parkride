@@ -102,8 +102,7 @@ class _ParkrideCrearCuentaState extends State<ParkrideCrearCuenta> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage =
-            "Error al crear la cuenta. Verifica que el correo no esté registrado.";
+        _errorMessage = 'No se pudo crear la cuenta: $e';
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -216,7 +215,9 @@ class _ParkrideCrearCuentaState extends State<ParkrideCrearCuenta> {
 
                         if (_selectedRol.toLowerCase().contains('ruta') ||
                             _selectedRol.toLowerCase().contains('chofer') ||
-                            _selectedRol.toLowerCase().contains('conductor')) ...[
+                            _selectedRol
+                                .toLowerCase()
+                                .contains('conductor')) ...[
                           _buildField(
                             controller: _vehiculoController,
                             label: "Marca, modelo y placa del auto *",

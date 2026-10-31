@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/parkride_models.dart';
-import '../services/airport_route_service.dart';
 import '../services/location_service.dart';
 import '../services/parkride_state.dart';
 import '../widgets/app_logo.dart';
@@ -23,6 +22,8 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
   TransportOption? selectedOption;
   final TextEditingController _searchController = TextEditingController();
   late LatLng _mapCenter;
+  String? _transportFilter;
+  String _originLabel = 'Obteniendo ubicación actual...';
 
   @override
   void initState() {
@@ -32,29 +33,37 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
     _initializeDefaultNodes();
     _refreshUserLocation();
     selectedOption = state.availableOptions.first;
-    state.refreshNearestRoute();
+    state.refreshRoutes();
   }
 
   Future<void> _refreshUserLocation() async {
-    final currentPosition =
-        await ParkRideLocationService().getCurrentPosition();
-    if (!mounted || currentPosition == null) {
+    final location =
+        await ParkRideLocationService().getCurrentLocationWithAddress();
+    if (!mounted || location == null) {
+      if (mounted) {
+        setState(() {
+          _originLabel = 'Activa la ubicación para establecer tu origen';
+        });
+      }
       return;
     }
 
     setState(() {
-      state.userCurrentLocation = currentPosition;
-      _mapCenter = currentPosition;
+      state.userCurrentLocation = location.coordinates;
+      _mapCenter = location.coordinates;
+      _originLabel = location.address;
+      selectedOrigen = LocationNode(
+        id: 'current-location',
+        nombre: location.address,
+        zona: 'Ubicación actual',
+        iconType: 'my_location',
+        latitude: location.coordinates.latitude,
+        longitude: location.coordinates.longitude,
+      );
 
-      final nearestOrigin = state.getNearestNode(currentPosition);
       final nextNodes =
-          state.nodes.where((node) => node.id != nearestOrigin.id).toList();
-      final nearestDestination = nextNodes.isNotEmpty
-          ? state.getNearestNode(currentPosition, exclude: nearestOrigin)
-          : nearestOrigin;
-
-      selectedOrigen ??= nearestOrigin;
-      selectedDestino ??= nearestDestination;
+          state.nodes.where((node) => node.id != selectedOrigen!.id).toList();
+      selectedDestino ??= nextNodes.isNotEmpty ? nextNodes.first : null;
     });
   }
 
@@ -192,7 +201,7 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
     );
   }
 
-  void _requestTripDirect() {
+  Future<void> _requestTripDirect() async {
     if (selectedOrigen == null ||
         selectedDestino == null ||
         selectedOption == null) return;
@@ -207,11 +216,19 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
       return;
     }
 
-    state.requestTrip(
-      origen: selectedOrigen!,
-      destino: selectedDestino!,
-      option: selectedOption!,
-    );
+    try {
+      await state.requestTrip(
+        origen: selectedOrigen!,
+        destino: selectedDestino!,
+        option: selectedOption!,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo solicitar el viaje: $error')),
+      );
+      return;
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -255,6 +272,8 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
                   });
                 },
                 showDriverLocation: true,
+                routes: state.routes,
+                transportFilter: _transportFilter,
               ),
             ),
 
@@ -325,7 +344,7 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
                         // Botón de cambio rápido a Modo Conductor
                         OutlinedButton.icon(
                           onPressed: () =>
-                              Navigator.pushNamed(context, '/ModoConductor'),
+                              Navigator.pushNamed(context, '/ChoferDashboard'),
                           icon: const Icon(Icons.directions_bus,
                               size: 16, color: Color(0xFF1E293B)),
                           label: const Text(
@@ -372,21 +391,43 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
                       color: const Color(0xFF0F172A),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.route_rounded,
-                            color: Color(0xFF86EFAC), size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            AirportRouteService.buildRouteRecommendationText(
-                                state.userCurrentLocation),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
+                        Row(
+                          children: [
+                            const Icon(Icons.my_location_rounded,
+                                color: Color(0xFF86EFAC), size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _originLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
-                          ),
+                            IconButton(
+                              tooltip: 'Actualizar ubicación',
+                              onPressed: _refreshUserLocation,
+                              icon: const Icon(Icons.refresh_rounded,
+                                  color: Color(0xFF86EFAC), size: 18),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 6,
+                          children: [
+                            _buildTransportFilter('Todos', null),
+                            _buildTransportFilter('Camión', 'bus'),
+                            _buildTransportFilter('Van', 'van'),
+                            _buildTransportFilter('Carpool', 'carpool'),
+                          ],
                         ),
                       ],
                     ),
@@ -648,6 +689,24 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
         ),
       ),
       bottomNavigationBar: const ParkRideBottomNavBar(currentIndex: 0),
+    );
+  }
+
+  Widget _buildTransportFilter(String label, String? type) {
+    final selected = _transportFilter == type;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => setState(() => _transportFilter = type),
+      backgroundColor: Colors.white.withValues(alpha: 0.1),
+      selectedColor: const Color(0xFF22C55E),
+      labelStyle: TextStyle(
+        color: selected ? Colors.white : const Color(0xFFE2E8F0),
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+      ),
+      visualDensity: VisualDensity.compact,
+      side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
     );
   }
 }

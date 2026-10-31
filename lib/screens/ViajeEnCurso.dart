@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import '../models/parkride_models.dart';
 import '../services/parkride_state.dart';
-import '../widgets/app_logo.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/interactive_map.dart';
 
@@ -13,6 +16,21 @@ class ViajeEnCurso extends StatefulWidget {
 
 class _ViajeEnCursoState extends State<ViajeEnCurso> {
   final state = ParkRideState();
+  Timer? _qrTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _qrTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _qrTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -257,14 +275,20 @@ class _ViajeEnCursoState extends State<ViajeEnCurso> {
 
                           // Show Passenger QR Dialog Button
                           OutlinedButton.icon(
-                            onPressed: () =>
-                                _showPassengerQRDialog(context, trip),
+                            onPressed: trip.isQrExpired
+                                ? null
+                                : () => _showPassengerQRDialog(context, trip),
                             icon: const Icon(Icons.qr_code_2,
                                 color: Color(0xFF22C55E)),
-                            label: const Text("Ver Mi Pase de Abordaje (QR)",
-                                style: TextStyle(
-                                    color: Color(0xFF22C55E),
-                                    fontWeight: FontWeight.bold)),
+                            label: Text(
+                              trip.isQrExpired
+                                  ? 'Pase de Abordaje Expirado'
+                                  : 'Ver Mi Pase de Abordaje (QR)',
+                              style: const TextStyle(
+                                color: Color(0xFF22C55E),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             style: OutlinedButton.styleFrom(
                               minimumSize: const Size(double.infinity, 46),
                               side: const BorderSide(color: Color(0xFF22C55E)),
@@ -319,144 +343,10 @@ class _ViajeEnCursoState extends State<ViajeEnCurso> {
     );
   }
 
-  void _showPassengerQRDialog(BuildContext context, dynamic trip) {
-    final expiryTime =
-        trip.qrExpiresAt ?? trip.timestamp.add(const Duration(minutes: 15));
-    final remainingMinutes =
-        expiryTime.difference(DateTime.now()).inMinutes.clamp(0, 15);
-
+  void _showPassengerQRDialog(BuildContext context, TripModel trip) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Row(
-          children: [
-            Icon(Icons.qr_code_2_rounded, color: Color(0xFF22C55E), size: 28),
-            SizedBox(width: 10),
-            Text(
-              "Pase de Abordaje",
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: Color(0xFF1E293B)),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    width: 170,
-                    height: 170,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(10),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        CustomPaint(
-                          size: const Size(150, 150),
-                          painter: _QrMatrixPainter(trip.qrCode ?? 'PR-QR-001'),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            boxShadow: [
-                              BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.12),
-                                  blurRadius: 4),
-                            ],
-                          ),
-                          child: const AppLogo(size: 24, borderRadius: 4),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    trip.qrCode ?? "PR-QR-001",
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      letterSpacing: 1.1,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Pasajero: ${trip.pasajeroNombre}",
-                    style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF475569)),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFA7F3D0)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.timer_outlined,
-                      color: Color(0xFF16A34A), size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "Vigencia: $remainingMinutes min restantes (máx. 15m)",
-                      style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF166534)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              "Muestra este código al chofer para registrar tu abordaje seguro.",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Cerrar",
-                style: TextStyle(
-                    color: Color(0xFF22C55E), fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
+      builder: (ctx) => _BoardingPassDialog(trip: trip),
     );
   }
 
@@ -475,64 +365,101 @@ class _ViajeEnCursoState extends State<ViajeEnCurso> {
   }
 }
 
-class _QrMatrixPainter extends CustomPainter {
-  final String data;
-  const _QrMatrixPainter(this.data);
+class _BoardingPassDialog extends StatefulWidget {
+  final TripModel trip;
+
+  const _BoardingPassDialog({required this.trip});
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final paintDark = Paint()..color = const Color(0xFF0F172A);
-    const int cells = 15;
-    final cellSize = size.width / cells;
+  State<_BoardingPassDialog> createState() => _BoardingPassDialogState();
+}
 
-    // Deterministic bit generator based on string
-    final seed = data.hashCode.abs();
+class _BoardingPassDialogState extends State<_BoardingPassDialog> {
+  late final Timer _timer;
 
-    for (int r = 0; r < cells; r++) {
-      for (int c = 0; c < cells; c++) {
-        // Draw standard QR finder patterns in 3 corners
-        final isTopLeftFinder = (r < 4 && c < 4);
-        final isTopRightFinder = (r < 4 && c >= cells - 4);
-        final isBottomLeftFinder = (r >= cells - 4 && c < 4);
-
-        if (isTopLeftFinder || isTopRightFinder || isBottomLeftFinder) {
-          // outer ring or center dot
-          final localR = isBottomLeftFinder ? r - (cells - 4) : r;
-          final localC = isTopRightFinder ? c - (cells - 4) : c;
-          if (localR == 0 ||
-              localR == 3 ||
-              localC == 0 ||
-              localC == 3 ||
-              (localR == 1 && localC == 1) ||
-              (localR == 2 && localC == 2)) {
-            canvas.drawRRect(
-              RRect.fromRectAndRadius(
-                Rect.fromLTWH(c * cellSize + 0.5, r * cellSize + 0.5,
-                    cellSize - 1, cellSize - 1),
-                const Radius.circular(1.5),
-              ),
-              paintDark,
-            );
-          }
-        } else {
-          // Inner data pattern
-          final bit = ((seed ^ (r * 31 + c * 17)) * 2654435761) & 0xFF;
-          if (bit % 2 == 0) {
-            canvas.drawRRect(
-              RRect.fromRectAndRadius(
-                Rect.fromLTWH(c * cellSize + 1, r * cellSize + 1, cellSize - 2,
-                    cellSize - 2),
-                const Radius.circular(1),
-              ),
-              paintDark,
-            );
-          }
-        }
-      }
-    }
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
-  bool shouldRepaint(covariant _QrMatrixPainter oldDelegate) =>
-      oldDelegate.data != data;
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = widget.trip.qrTimeRemaining;
+    final expired = widget.trip.isQrExpired;
+    final minutes = remaining.inMinutes.toString().padLeft(2, '0');
+    final seconds = (remaining.inSeconds % 60).toString().padLeft(2, '0');
+
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      title: Row(
+        children: [
+          Icon(
+            Icons.qr_code_2_rounded,
+            color: expired ? const Color(0xFF64748B) : const Color(0xFF22C55E),
+            size: 28,
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Pase de Abordaje',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ColorFiltered(
+            colorFilter: expired
+                ? const ColorFilter.mode(Colors.grey, BlendMode.saturation)
+                : const ColorFilter.mode(
+                    Colors.transparent, BlendMode.multiply),
+            child: QrImageView(
+              data: widget.trip.qrCode,
+              version: QrVersions.auto,
+              size: 180,
+              backgroundColor: Colors.white,
+              errorCorrectionLevel: QrErrorCorrectLevel.M,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            expired ? 'EXPIRADO' : '$minutes:$seconds',
+            style: TextStyle(
+              color:
+                  expired ? const Color(0xFF64748B) : const Color(0xFF16A34A),
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            expired
+                ? 'Este pase ya no es válido. Solicita un nuevo viaje.'
+                : 'Muestra este código al chofer para registrar tu abordaje.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cerrar'),
+        ),
+      ],
+    );
+  }
 }

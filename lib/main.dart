@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'services/supabase_service.dart';
 import 'screens/ChoferRutaScreen.dart';
+import 'screens/ChoferDashboard.dart';
 import 'screens/CodigoQRScreen.dart';
-import 'screens/Frame1.dart';
-import 'screens/Frame2.dart';
 import 'screens/HistorialViajesScreen.dart';
-import 'screens/ModoConductor.dart';
-import 'screens/ParkrideContrasenaIncorrecta.dart';
 import 'screens/ParkrideCrearCuenta.dart';
 import 'screens/ParkrideDashboard.dart';
 import 'screens/ParkrideLogin.dart';
@@ -57,7 +54,6 @@ class ParkRideApp extends StatelessWidget {
         '/ParkrideCrearCuenta': (context) => const ParkrideCrearCuenta(),
         '/SolicitarViaje': (context) => const SolicitarViaje(),
         '/ViajeEnCurso': (context) => const ViajeEnCurso(),
-        '/ModoConductor': (context) => const ModoConductor(),
         '/ParkrideProfileSettings': (context) =>
             const ParkrideProfileSettings(),
         '/CodigoQR': (context) => const CodigoQRScreen(),
@@ -65,12 +61,8 @@ class ParkRideApp extends StatelessWidget {
         '/ReportesESG': (context) => const ReportesESGScreen(),
         '/SupervisorDashboard': (context) => const SupervisorDashboard(),
         '/ChoferRuta': (context) => const ChoferRutaScreen(),
+        '/ChoferDashboard': (context) => const ChoferDashboard(),
 
-        // Compatibilidad de pantallas
-        '/Frame1': (context) => const Frame1(),
-        '/Frame2': (context) => const Frame2(),
-        '/ParkrideContrasenaIncorrecta': (context) =>
-            const ParkrideContrasenaIncorrecta(),
       },
     );
   }

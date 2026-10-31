@@ -15,6 +15,8 @@ class CampusFlutterMap extends StatefulWidget {
   final LatLng? driverPosition;
   final bool isInteractive;
   final List<LatLng> routePoints;
+  final List<ParkRideRoute> routes;
+  final String? transportFilter;
 
   const CampusFlutterMap({
     super.key,
@@ -27,6 +29,8 @@ class CampusFlutterMap extends StatefulWidget {
     this.driverPosition,
     this.isInteractive = true,
     this.routePoints = const [],
+    this.routes = const [],
+    this.transportFilter,
   });
 
   @override
@@ -58,7 +62,8 @@ class _CampusFlutterMapState extends State<CampusFlutterMap> {
   }
 
   Future<void> _loadRouteIfNeeded() async {
-    final hasSelection = widget.selectedOrigen != null && widget.selectedDestino != null;
+    final hasSelection =
+        widget.selectedOrigen != null && widget.selectedDestino != null;
     if (!hasSelection) {
       if (mounted) {
         setState(() {
@@ -105,12 +110,17 @@ class _CampusFlutterMapState extends State<CampusFlutterMap> {
         _resolvedRoutePoints = <LatLng>[
           widget.selectedOrigen!.latLng,
           LatLng(
-            (widget.selectedOrigen!.latitude + widget.selectedDestino!.latitude) / 2,
-            (widget.selectedOrigen!.longitude + widget.selectedDestino!.longitude) / 2,
+            (widget.selectedOrigen!.latitude +
+                    widget.selectedDestino!.latitude) /
+                2,
+            (widget.selectedOrigen!.longitude +
+                    widget.selectedDestino!.longitude) /
+                2,
           ),
           widget.selectedDestino!.latLng,
         ];
-        _routeError = 'No se pudo cargar la ruta real. Se mostró una ruta alternativa.';
+        _routeError =
+            'No se pudo cargar la ruta real. Se mostró una ruta alternativa.';
         _isLoadingRoute = false;
       });
     }
@@ -233,6 +243,72 @@ class _CampusFlutterMapState extends State<CampusFlutterMap> {
       );
     }
 
+    final visibleRoutes = widget.routes.where((route) {
+      return widget.transportFilter == null ||
+          route.transportType == widget.transportFilter;
+    });
+    final routePolylines = <Polyline>[];
+    for (final route in visibleRoutes) {
+      if (route.stops.length < 2) continue;
+      final color = _colorFromHex(route.color);
+      routePolylines.add(
+        Polyline(
+          points: route.stops.map((stop) => stop.latLng).toList(),
+          strokeWidth: 5,
+          color: color,
+        ),
+      );
+      for (final stop in route.stops) {
+        markers.add(
+          Marker(
+            point: stop.latLng,
+            width: 78,
+            height: 44,
+            child: Tooltip(
+              message: '${route.name}: ${stop.nombre}',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 11,
+                    height: 11,
+                    decoration: BoxDecoration(
+                      color: route.isAvailable
+                          ? const Color(0xFF22C55E)
+                          : const Color(0xFF94A3B8),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: Text(
+                        route.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
     final driverPos = widget.driverPosition ?? const LatLng(25.7262, -100.3120);
     if (widget.showDriverLocation || state.isDriverOnline) {
       markers.add(
@@ -279,15 +355,15 @@ class _CampusFlutterMapState extends State<CampusFlutterMap> {
                   ]
                 : <LatLng>[]));
 
-    final polylines = polylinePoints.isNotEmpty
-        ? <Polyline>[
-            Polyline(
-              points: polylinePoints,
-              strokeWidth: 4.5,
-              color: const Color(0xFF22C55E),
-            ),
-          ]
-        : <Polyline>[];
+    final polylines = <Polyline>[
+      ...routePolylines,
+      if (polylinePoints.isNotEmpty)
+        Polyline(
+          points: polylinePoints,
+          strokeWidth: 4.5,
+          color: const Color(0xFF22C55E),
+        ),
+    ];
 
     return Stack(
       children: [
@@ -426,5 +502,11 @@ class _CampusFlutterMapState extends State<CampusFlutterMap> {
         ),
       ],
     );
+  }
+
+  Color _colorFromHex(String raw) {
+    final normalized = raw.replaceFirst('#', '');
+    final value = int.tryParse(normalized, radix: 16);
+    return value == null ? const Color(0xFF2563EB) : Color(0xFF000000 | value);
   }
 }

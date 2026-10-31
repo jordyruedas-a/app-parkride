@@ -30,6 +30,8 @@
 	<string>ParkRide requiere acceso a tu ubicación para mostrar tu punto de recogida y rutas en tiempo real.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>ParkRide requiere acceso continuo a la ubicación para la navegación y seguimiento del viaje.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>ParkRide requiere acceso a la cámara para escanear pases QR de abordaje.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

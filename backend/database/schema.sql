@@ -1,17 +1,30 @@
+-- Fresh PostgreSQL bootstrap schema. Existing deployments should use a reviewed migration.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL CHECK (role IN ('passenger', 'driver', 'admin')),
+    role VARCHAR(50) NOT NULL CHECK (role IN ('passenger', 'route_driver', 'supervisor')),
     company VARCHAR(255),
     department VARCHAR(255),
     employee_number VARCHAR(255),
     phone VARCHAR(50),
     shift VARCHAR(50),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    is_active BOOLEAN DEFAULT TRUE
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS vehicles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    model VARCHAR(255) NOT NULL,
+    plate VARCHAR(50) UNIQUE NOT NULL,
+    color VARCHAR(50) NOT NULL,
+    transport_type VARCHAR(20) NOT NULL CHECK (transport_type IN ('bus', 'van')),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS routes (
@@ -20,54 +33,68 @@ CREATE TABLE IF NOT EXISTS routes (
     origin VARCHAR(255) NOT NULL,
     destination VARCHAR(255) NOT NULL,
     departure_time TIME NOT NULL,
-    driver_id UUID REFERENCES users(id),
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    transport_type VARCHAR(20) NOT NULL CHECK (transport_type IN ('bus', 'van')),
+    color VARCHAR(7) NOT NULL CHECK (color ~ '^#[0-9A-Fa-f]{6}$'),
+    driver_id UUID UNIQUE REFERENCES users(id),
+    vehicle_id UUID UNIQUE REFERENCES vehicles(id),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_available BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS route_stops (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    route_id UUID REFERENCES routes(id) ON DELETE CASCADE,
+    route_id UUID NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
     stop_name VARCHAR(255) NOT NULL,
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
-    stop_order INTEGER NOT NULL
+    stop_order INTEGER NOT NULL,
+    UNIQUE (route_id, stop_order)
 );
 
 CREATE TABLE IF NOT EXISTS trips (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    passenger_id UUID REFERENCES users(id),
+    passenger_id UUID NOT NULL REFERENCES users(id),
     driver_id UUID REFERENCES users(id),
-    route_id UUID REFERENCES routes(id),
+    route_id UUID NOT NULL REFERENCES routes(id),
     transport_type VARCHAR(50) NOT NULL CHECK (transport_type IN ('shuttle', 'van', 'carpool')),
     status VARCHAR(30) NOT NULL DEFAULT 'requested',
     origin VARCHAR(255),
     destination VARCHAR(255),
-    credit_cost INTEGER NOT NULL DEFAULT 0,
+    credit_cost INTEGER NOT NULL DEFAULT 0 CHECK (credit_cost >= 0),
     qr_token UUID,
-    qr_expires_at TIMESTAMPTZ,
-    used_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    completed_at TIMESTAMPTZ
+    qr_expires_at TIMESTAMP,
+    used_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS qr_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
+    trip_id UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
     token UUID NOT NULL UNIQUE,
-    issued_at TIMESTAMPTZ DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL,
-    used BOOLEAN DEFAULT FALSE,
+    issued_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT FALSE,
     used_by_driver_id UUID REFERENCES users(id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_trips_status ON trips(status);
-CREATE INDEX IF NOT EXISTS idx_qr_tokens_token ON qr_tokens(token);
+CREATE TABLE IF NOT EXISTS reports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reporter_id UUID NOT NULL REFERENCES users(id),
+    reporter_role VARCHAR(50) NOT NULL CHECK (reporter_role IN ('passenger', 'route_driver', 'supervisor')),
+    category VARCHAR(100) NOT NULL,
+    comment TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(30) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved')),
+    resolved_by_id UUID REFERENCES users(id),
+    resolved_at TIMESTAMP
+);
 
-INSERT INTO users (id, email, password_hash, name, role, company, department, employee_number, phone, shift)
-VALUES
-    ('00000000-0000-0000-0000-000000000001', 'passenger@parkride.com', 'passenger123', 'Ana García', 'passenger', 'ParkRide', 'Operación', 'EMP-1001', '+52 81 1111 1111', 'Matutino'),
-    ('00000000-0000-0000-0000-000000000002', 'driver@parkride.com', 'driver123', 'Luis Moreno', 'driver', 'ParkRide', 'Ruta Norte', 'EMP-2001', '+52 81 2222 2222', 'Vespertino'),
-    ('00000000-0000-0000-0000-000000000003', 'admin@parkride.com', 'admin123', 'Valeria Torres', 'admin', 'ParkRide', 'Administración', 'EMP-3001', '+52 81 3333 3333', 'Nocturno')
-ON CONFLICT (email) DO NOTHING;
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_routes_driver_active ON routes(driver_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_trips_status ON trips(status);
+CREATE INDEX IF NOT EXISTS idx_trips_passenger ON trips(passenger_id);
+CREATE INDEX IF NOT EXISTS idx_qr_tokens_token ON qr_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_reports_reporter ON reports(reporter_id);
+CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);

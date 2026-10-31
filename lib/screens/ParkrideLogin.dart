@@ -67,7 +67,7 @@ class _ParkrideLoginState extends State<ParkrideLogin>
       } else if (role.contains('Ruta')) {
         Navigator.pushReplacementNamed(context, '/ChoferRuta');
       } else if (role.contains('Chofer')) {
-        Navigator.pushReplacementNamed(context, '/ModoConductor');
+        Navigator.pushReplacementNamed(context, '/ChoferDashboard');
       } else {
         Navigator.pushReplacementNamed(context, '/ParkrideDashboard');
       }
@@ -75,7 +75,7 @@ class _ParkrideLoginState extends State<ParkrideLogin>
       if (!mounted) return;
       setState(() {
         _showError = true;
-        _errorMessage = 'Correo o contraseña incorrectos. Intenta de nuevo.';
+        _errorMessage = 'No se pudo iniciar sesión: $e';
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);

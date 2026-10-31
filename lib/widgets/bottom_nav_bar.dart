@@ -2,55 +2,61 @@ import 'package:flutter/material.dart';
 
 class ParkRideBottomNavBar extends StatelessWidget {
   final int currentIndex;
-  final Function(int)? onTap;
+  final ValueChanged<int>? onTap;
+  final List<ParkRideNavItem>? items;
 
   const ParkRideBottomNavBar({
     super.key,
     required this.currentIndex,
     this.onTap,
+    this.items,
   });
+
+  static const List<ParkRideNavItem> driverItems = [
+    ParkRideNavItem(
+        icon: Icons.route_rounded, label: 'Mi Ruta', route: '/ChoferRuta'),
+    ParkRideNavItem(
+        icon: Icons.space_dashboard_rounded,
+        label: 'Dashboard',
+        route: '/ChoferDashboard'),
+    ParkRideNavItem(
+        icon: Icons.report_problem_rounded,
+        label: 'Reportes',
+        route: '/ReportesESG'),
+    ParkRideNavItem(
+        icon: Icons.person_rounded,
+        label: 'Perfil',
+        route: '/ParkrideProfileSettings'),
+  ];
+
+  static const List<ParkRideNavItem> _passengerItems = [
+    ParkRideNavItem(
+        icon: Icons.home_rounded, label: 'Inicio', route: '/ParkrideDashboard'),
+    ParkRideNavItem(
+        icon: Icons.directions_car_filled_rounded,
+        label: 'Solicitar',
+        route: '/SolicitarViaje'),
+    ParkRideNavItem(
+        icon: Icons.history_rounded,
+        label: 'Mis Viajes',
+        route: '/HistorialViajes'),
+    ParkRideNavItem(
+        icon: Icons.bar_chart_rounded,
+        label: 'Reportes',
+        route: '/ReportesESG'),
+    ParkRideNavItem(
+        icon: Icons.person_rounded,
+        label: 'Perfil',
+        route: '/ParkrideProfileSettings'),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final items = [
-      {
-        'icon': Icons.home_rounded,
-        'label': 'Inicio',
-        'route': '/ParkrideDashboard'
-      },
-      {
-        'icon': Icons.directions_car_filled_rounded,
-        'label': 'Solicitar',
-        'route': '/SolicitarViaje'
-      },
-      {
-        'icon': Icons.history_rounded,
-        'label': 'Mis Viajes',
-        'route': '/HistorialViajes'
-      },
-      {
-        'icon': Icons.bar_chart_rounded,
-        'label': 'Reportes',
-        'route': '/ReportesESG'
-      },
-      {
-        'icon': Icons.person_rounded,
-        'label': 'Perfil',
-        'route': '/ParkrideProfileSettings'
-      },
-    ];
-
+    final resolvedItems = items ?? _passengerItems;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
       ),
       child: SafeArea(
         top: false,
@@ -58,19 +64,16 @@ class ParkRideBottomNavBar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final itemsWidgets = List.generate(items.length, (index) {
-                final isSelected = currentIndex == index;
-                final item = items[index];
-
+              final itemWidgets = List.generate(resolvedItems.length, (index) {
+                final item = resolvedItems[index];
+                final selected = currentIndex == index;
                 return InkWell(
                   onTap: () {
                     if (onTap != null) {
                       onTap!(index);
-                    } else {
-                      final route = item['route'] as String;
-                      if (ModalRoute.of(context)?.settings.name != route) {
-                        Navigator.pushNamed(context, route);
-                      }
+                    } else if (ModalRoute.of(context)?.settings.name !=
+                        item.route) {
+                      Navigator.pushNamed(context, item.route);
                     }
                   },
                   borderRadius: BorderRadius.circular(12),
@@ -80,23 +83,20 @@ class ParkRideBottomNavBar extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          item['icon'] as IconData,
-                          color: isSelected
-                              ? const Color(0xFF22C55E)
-                              : const Color(0xFF64748B),
-                          size: 24,
-                        ),
+                        Icon(item.icon,
+                            color: selected
+                                ? const Color(0xFF22C55E)
+                                : const Color(0xFF64748B)),
                         const SizedBox(height: 4),
                         Text(
-                          item['label'] as String,
+                          item.label,
                           style: TextStyle(
-                            color: isSelected
+                            color: selected
                                 ? const Color(0xFF22C55E)
                                 : const Color(0xFF64748B),
                             fontSize: 11,
                             fontWeight:
-                                isSelected ? FontWeight.bold : FontWeight.w500,
+                                selected ? FontWeight.bold : FontWeight.w500,
                           ),
                         ),
                       ],
@@ -104,23 +104,30 @@ class ParkRideBottomNavBar extends StatelessWidget {
                   ),
                 );
               });
-
-              if (constraints.maxWidth < 360) {
-                return Wrap(
-                  alignment: WrapAlignment.spaceEvenly,
-                  runSpacing: 6,
-                  children: itemsWidgets,
-                );
-              }
-
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: itemsWidgets,
-              );
+              return constraints.maxWidth < 360
+                  ? Wrap(
+                      alignment: WrapAlignment.spaceEvenly,
+                      runSpacing: 6,
+                      children: itemWidgets)
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: itemWidgets);
             },
           ),
         ),
       ),
     );
   }
+}
+
+class ParkRideNavItem {
+  final IconData icon;
+  final String label;
+  final String route;
+
+  const ParkRideNavItem({
+    required this.icon,
+    required this.label,
+    required this.route,
+  });
 }

@@ -1,0 +1,58 @@
+PARKRIDE - REQUERIMIENTOS DE ENTORNO
+=====================================
+
+Lenguajes utilizados
+- Flutter y Dart para la aplicacion movil.
+- Python 3.12+ para la API.
+- SQL para la persistencia SQLite local y PostgreSQL en produccion.
+
+Librerias principales
+Flutter (pubspec.yaml):
+- flutter SDK, provider ^6.1.5+1, shared_preferences ^2.3.5, http ^1.6.0.
+- qr_flutter ^4.1.0, mobile_scanner ^6.0.7, permission_handler ^12.0.1
+  y uuid ^4.5.1.
+- flutter_map ^8.3.2, latlong2 ^0.10.1, geolocator ^14.0.0 y
+  geocoding ^3.0.0.
+- supabase_flutter ^2.18.3 y google_polyline_algorithm ^3.1.0.
+
+Backend (backend/requirements.txt):
+- fastapi 0.115.0, uvicorn[standard] 0.30.6, sqlalchemy 2.0.35.
+- pydantic 2.9.2, python-jose[cryptography] 3.3.0,
+  passlib[bcrypt] 1.7.4, python-dotenv 1.0.1 y pytest 8.3.3.
+
+Herramientas externas
+- Flutter SDK y Android SDK (Android Studio o herramientas de linea).
+- Visual Studio Code o Android Studio con extensiones Dart y Flutter.
+- Python 3.12+, Postman (opcional para probar la API) y PostgreSQL para produccion.
+
+Estructura
+- lib/: aplicacion Flutter; screens/, services/, models/ y widgets/.
+- test/: pruebas unitarias de Dart.
+- backend/app/: API FastAPI, modelos, esquemas, autenticacion y base de datos.
+- backend/tests/: pruebas aisladas de la API.
+- backend/database/: esquema SQL de arranque para PostgreSQL.
+- backend/seed_demo.py: crea las 10 rutas (5 camiones y 5 vans), flota,
+  choferes y cuentas locales de demostracion.
+
+Ejecucion
+1. Abra PowerShell en backend y cree el entorno:
+   py -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   pip install -r requirements.txt
+2. Configure backend/.env con DATABASE_URL, JWT_SECRET y QR_VALIDITY_MINUTES=15.
+3. Inicie la API:
+   py .\seed_demo.py
+   py -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+4. En la raiz del proyecto ejecute:
+   flutter pub get
+   flutter run --dart-define=PARKRIDE_API_URL=http://10.0.2.2:8000
+   Para un dispositivo fisico, sustituya 10.0.2.2 por la IP LAN del equipo.
+5. Pruebas y compilacion:
+   flutter test
+   flutter build apk --release --dart-define=PARKRIDE_API_URL=<URL_DE_PRODUCCION>
+
+Permisos moviles
+- Android solicita ubicacion precisa y camara desde AndroidManifest.xml.
+- iOS solicita NSLocationWhenInUseUsageDescription y NSCameraUsageDescription.
+- En el emulador Android, configura una fuente en More controls > Camera
+  antes de probar el escaneo QR.

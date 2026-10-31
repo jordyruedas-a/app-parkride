@@ -1,5 +1,16 @@
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+
+class ParkRideCurrentLocation {
+  final LatLng coordinates;
+  final String address;
+
+  const ParkRideCurrentLocation({
+    required this.coordinates,
+    required this.address,
+  });
+}
 
 class ParkRideLocationService {
   static const LatLng fallbackLocation = LatLng(25.7252, -100.3131);
@@ -42,9 +53,39 @@ class ParkRideLocationService {
     }
 
     final position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+      ),
     );
 
     return LatLng(position.latitude, position.longitude);
+  }
+
+  Future<ParkRideCurrentLocation?> getCurrentLocationWithAddress() async {
+    final coordinates = await getCurrentPosition();
+    if (coordinates == null) return null;
+
+    try {
+      final placemarks = await placemarkFromCoordinates(
+        coordinates.latitude,
+        coordinates.longitude,
+      );
+      final place = placemarks.isEmpty ? null : placemarks.first;
+      final parts = <String>[
+        if (place?.street?.trim().isNotEmpty == true) place!.street!.trim(),
+        if (place?.subLocality?.trim().isNotEmpty == true)
+          place!.subLocality!.trim(),
+        if (place?.locality?.trim().isNotEmpty == true) place!.locality!.trim(),
+      ];
+      return ParkRideCurrentLocation(
+        coordinates: coordinates,
+        address: parts.isEmpty ? 'Ubicación actual' : parts.join(', '),
+      );
+    } catch (_) {
+      return ParkRideCurrentLocation(
+        coordinates: coordinates,
+        address: 'Ubicación actual',
+      );
+    }
   }
 }

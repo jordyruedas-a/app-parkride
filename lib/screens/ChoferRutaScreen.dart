@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
-import '../services/airport_route_service.dart';
 import '../services/parkride_state.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/bottom_nav_bar.dart';
 import '../widgets/campus_flutter_map.dart';
 
 class ChoferRutaScreen extends StatefulWidget {
@@ -14,10 +14,10 @@ class ChoferRutaScreen extends StatefulWidget {
 
 class _ChoferRutaScreenState extends State<ChoferRutaScreen> {
   final state = ParkRideState();
-  int _selectedRouteIndex = 0;
   int _boardedCount = 14;
   int _currentStopIndex = 0;
   String _serviceStatus = "En Ruta";
+  bool _routeCompleted = false;
 
   @override
   void initState() {
@@ -36,7 +36,7 @@ class _ChoferRutaScreenState extends State<ChoferRutaScreen> {
   }
 
   void _advanceStop() {
-    final route = AirportRouteService.fixedRoutes[_selectedRouteIndex];
+    final route = state.assignedDriverRoute;
     if (_currentStopIndex < route.stops.length - 1) {
       setState(() {
         _currentStopIndex++;
@@ -50,9 +50,17 @@ class _ChoferRutaScreenState extends State<ChoferRutaScreen> {
         ),
       );
     } else {
+      setState(() {
+        _routeCompleted = true;
+        _serviceStatus = 'Finalizada';
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Has llegado a la terminal final de la ruta."),
+        SnackBar(
+          content: Text(
+            state.nextRouteDeparture == null
+                ? 'Ruta finalizada. Volver al centro de unidades.'
+                : 'Ruta finalizada. Próximo horario: ${state.nextRouteDeparture}.',
+          ),
           backgroundColor: Color(0xFF1E293B),
         ),
       );
@@ -61,8 +69,7 @@ class _ChoferRutaScreenState extends State<ChoferRutaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final routes = AirportRouteService.fixedRoutes;
-    final currentRoute = routes[_selectedRouteIndex];
+    final currentRoute = state.assignedDriverRoute;
     final currentStop = currentRoute.stops.isNotEmpty
         ? currentRoute
             .stops[_currentStopIndex.clamp(0, currentRoute.stops.length - 1)]
@@ -141,49 +148,19 @@ class _ChoferRutaScreenState extends State<ChoferRutaScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Selector de ruta asignada
             Container(
-              height: 48,
+              width: double.infinity,
               color: const Color(0xFF1E293B),
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                itemCount: routes.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final isSelected = _selectedRouteIndex == index;
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedRouteIndex = index;
-                        _currentStopIndex = 0;
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? const Color(0xFF22C55E)
-                            : const Color(0xFF334155),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Center(
-                        child: Text(
-                          "Ruta ${index + 1}: ${routes[index].routeName}",
-                          style: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFFCBD5E1),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Text(
+                'Ruta asignada: ${currentRoute.routeName}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
               ),
             ),
 
@@ -346,17 +323,21 @@ class _ChoferRutaScreenState extends State<ChoferRutaScreen> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton.icon(
-                      onPressed: () async {
-                        await Navigator.pushNamed(context, '/CodigoQR');
-                        if (mounted) {
-                          setState(() {
-                            _boardedCount++;
-                          });
-                        }
-                      },
+                      onPressed: _routeCompleted
+                          ? null
+                          : () async {
+                              await Navigator.pushNamed(context, '/CodigoQR');
+                              if (mounted) {
+                                setState(() {
+                                  _boardedCount++;
+                                });
+                              }
+                            },
                       icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
-                      label: const Text(
-                        "Escanear QR de Abordaje",
+                      label: Text(
+                        _routeCompleted
+                            ? 'Ruta finalizada'
+                            : 'Escanear QR de Abordaje',
                         style: TextStyle(
                             fontSize: 15, fontWeight: FontWeight.bold),
                       ),
@@ -374,6 +355,10 @@ class _ChoferRutaScreenState extends State<ChoferRutaScreen> {
             ),
           ],
         ),
+      ),
+      bottomNavigationBar: const ParkRideBottomNavBar(
+        currentIndex: 0,
+        items: ParkRideBottomNavBar.driverItems,
       ),
     );
   }

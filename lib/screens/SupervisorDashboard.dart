@@ -93,13 +93,15 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildMapTab(routes),
-          _buildRoutesTab(routes),
-          _buildReportsTab(),
-        ],
+      body: SafeArea(
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildMapTab(routes),
+            _buildRoutesTab(routes),
+            _buildReportsTab(),
+          ],
+        ),
       ),
     );
   }
@@ -392,6 +394,91 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
                   color: Color(0xFF0F172A)),
             ),
             const SizedBox(height: 16),
+
+            const Text(
+              "Bandeja de incidencias",
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 10),
+            FutureBuilder<List<Map<String, dynamic>>>(
+              future: state.getReports(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return const Text(
+                    "No se pudieron cargar las incidencias.",
+                    style: TextStyle(color: Color(0xFF64748B)),
+                  );
+                }
+                final reports = snapshot.data ?? const [];
+                if (reports.isEmpty) {
+                  return const Text(
+                    "No hay incidencias pendientes.",
+                    style: TextStyle(color: Color(0xFF64748B)),
+                  );
+                }
+                return Column(
+                  children: reports.map((report) {
+                    final resolved = report['status'] == 'resolved';
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  report['category']?.toString() ??
+                                      'Incidencia',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              if (!resolved)
+                                TextButton(
+                                  onPressed: () async {
+                                    await state
+                                        .resolveReport(report['id'].toString());
+                                    if (mounted) setState(() {});
+                                  },
+                                  child: const Text('Marcar resuelto'),
+                                )
+                              else
+                                const Text(
+                                  'Resuelto',
+                                  style: TextStyle(
+                                    color: Color(0xFF16A34A),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          Text(
+                            report['comment']?.toString() ?? '',
+                            style: const TextStyle(color: Color(0xFF475569)),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+
+            const SizedBox(height: 24),
 
             // Stats grid
             GridView.count(

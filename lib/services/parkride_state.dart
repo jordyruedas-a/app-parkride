@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/parkride_models.dart';
 import 'airport_route_service.dart';
 import 'location_service.dart';
+import 'parkride_business_rules.dart';
+import 'parkride_api_service.dart';
 import 'ride_matching_service.dart';
 import 'supabase_service.dart';
 
@@ -13,6 +15,7 @@ class ParkRideState extends ChangeNotifier {
   ParkRideState._internal();
 
   final SupabaseService _supabaseService = SupabaseService();
+  final ParkRideApiService _apiService = ParkRideApiService.instance;
 
   // Coordenadas del parque industrial principal (Monterrey, NL)
   static const LatLng campusCenter = LatLng(25.7252, -100.3131);
@@ -54,6 +57,13 @@ class ParkRideState extends ChangeNotifier {
   LatLng userCurrentLocation = campusCenter;
 
   List<AirportRoute> get airportRoutes => AirportRouteService.fixedRoutes;
+
+  // The backend returns one assigned route for each route driver. The local
+  // fallback keeps the same one-route-only contract while offline.
+  AirportRoute get assignedDriverRoute => airportRoutes.first;
+  String? nextRouteDeparture = '07:30';
+  String? _activeRouteId;
+  List<ParkRideRoute> routes = const [];
 
   RouteMatch? closestAirportRoute;
 
@@ -152,30 +162,19 @@ class ParkRideState extends ChangeNotifier {
   // Driver Incoming Request
   TripModel? incomingDriverRequest;
 
-  static String normalizeRole(String? role) {
-    final value = (role ?? 'Pasajero').trim();
-    final lower = value.toLowerCase();
-
-    if (lower.contains('supervisor') || lower.contains('admin')) {
-      return 'Admin';
-    }
-    if (lower.contains('ruta') || lower.contains('route') || lower.contains('route_driver')) {
-      return 'Chofer de Ruta';
-    }
-    if (lower.contains('conductor') || lower.contains('chofer') || lower.contains('driver')) {
-      return 'Chofer';
-    }
-    return 'Pasajero';
-  }
+  static String normalizeRole(String? role) =>
+      ParkRideBusinessRules.normalizeRole(role);
 
   // Métodos de autenticación integrados con Supabase
   Future<void> loginUser(String email, String password) async {
-    final user = await _supabaseService.signIn(email: email, password: password);
+    final apiUser = await _apiService.login(email, password);
+    final user = _userFromApi(apiUser);
     final normalizedRole = normalizeRole(user.rol);
     currentUser = user.copyWith(rol: normalizedRole);
     if (normalizedRole.contains('Ruta') || normalizedRole.contains('Chofer')) {
       currentDriver = currentUser;
     }
+    await _loadRoutes();
     notifyListeners();
   }
 
@@ -191,26 +190,27 @@ class ParkRideState extends ChangeNotifier {
     String? vehicleInfo,
   }) async {
     final normalizedRol = normalizeRole(rol);
-    final user = await _supabaseService.signUp(
-      email: email,
-      password: password,
-      nombre: nombre,
-      rol: normalizedRol,
-      empresa: empresa,
-      departamento: departamento,
-      telefono: telefono,
-      numEmpleado: numEmpleado,
-      vehicleInfo: vehicleInfo,
-    );
-    currentUser = user.copyWith(rol: normalizedRol);
+    await _apiService.register({
+      'email': email,
+      'password': password,
+      'name': nombre,
+      'role': _apiRoleFor(normalizedRol),
+      'company': empresa,
+      'department': departamento,
+      'phone': telefono,
+      'employee_number': numEmpleado,
+    });
+    final apiUser = await _apiService.login(email, password);
+    currentUser = _userFromApi(apiUser).copyWith(rol: normalizedRol);
     if (normalizedRol.contains('Ruta') || normalizedRol.contains('Chofer')) {
       currentDriver = currentUser;
     }
+    await _loadRoutes();
     notifyListeners();
   }
 
   void logout() {
-    _supabaseService.signOut();
+    _apiService.logout();
     currentUser = UserModel(
       idEmpleado: 'USR-0001',
       nombre: 'Usuario ParkRide',
@@ -225,6 +225,7 @@ class ParkRideState extends ChangeNotifier {
     tripHistory = [];
     currentTrip = null;
     incomingDriverRequest = null;
+    _activeRouteId = null;
     notifyListeners();
   }
 
@@ -250,7 +251,7 @@ class ParkRideState extends ChangeNotifier {
     } catch (_) {
       destinoNode = nodes.length > 1 ? nodes[1] : nodes.first;
     }
-    requestTrip(origen: origenNode, destino: destinoNode, option: option);
+    await requestTrip(origen: origenNode, destino: destinoNode, option: option);
   }
 
   Future<void> refreshNearestRoute() async {
@@ -271,11 +272,11 @@ class ParkRideState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void requestTrip({
+  Future<void> requestTrip({
     required LocationNode origen,
     required LocationNode destino,
     required TransportOption option,
-  }) {
+  }) async {
     isSearchingTrip = true;
     notifyListeners();
 
@@ -289,9 +290,31 @@ class ParkRideState extends ChangeNotifier {
     final assignedDriverName = match.driverName;
     final assignedVehicleInfo = match.vehicleInfo;
 
-    final qrExpiry = DateTime.now().add(const Duration(minutes: 15));
+    if (_activeRouteId == null) {
+      await _loadRoutes();
+    }
+    if (_activeRouteId == null) {
+      isSearchingTrip = false;
+      notifyListeners();
+      throw StateError('No hay una ruta activa disponible para este viaje.');
+    }
+
+    final route = _routeForOption(option);
+    if (route == null) {
+      isSearchingTrip = false;
+      notifyListeners();
+      throw StateError('No hay unidades disponibles para ${option.title}.');
+    }
+
+    final ticket = await _apiService.createTrip(
+      routeId: route.id,
+      transportType: _apiTransportType(option),
+      origin: origen.nombre,
+      destination: destino.nombre,
+      creditCost: option.costCredits,
+    );
     final newTrip = TripModel(
-      idViaje: 'PR-${DateTime.now().millisecondsSinceEpoch % 10000}',
+      idViaje: ticket.tripId,
       pasajeroNombre: currentUser.nombre,
       conductorNombre: assignedDriverName,
       vehiculoInfo: assignedVehicleInfo,
@@ -303,8 +326,8 @@ class ParkRideState extends ChangeNotifier {
       duracionMin: option.etaMinutes,
       estado: match.matched ? 'Asignado' : 'Sin conductor disponible',
       timestamp: DateTime.now(),
-      qrCode: 'PR-QR-${DateTime.now().millisecondsSinceEpoch}',
-      qrExpiresAt: qrExpiry,
+      qrCode: ticket.token,
+      qrExpiresAt: ticket.expiresAt,
       origenLat: origen.latitude,
       origenLng: origen.longitude,
       destinoLat: destino.latitude,
@@ -335,10 +358,72 @@ class ParkRideState extends ChangeNotifier {
       );
     }
 
-    // Guardar en Supabase asíncronamente
-    _supabaseService.requestTrip(newTrip);
-
     notifyListeners();
+  }
+
+  Future<void> submitReport({
+    required String category,
+    required String comment,
+  }) =>
+      _apiService.submitReport(category: category, comment: comment);
+
+  Future<List<Map<String, dynamic>>> getReports() => _apiService.getReports();
+
+  Future<void> resolveReport(String reportId) =>
+      _apiService.resolveReport(reportId);
+
+  Future<void> _loadRoutes() async {
+    final response = await _apiService.getRoutes();
+    routes = response.map(ParkRideRoute.fromApi).toList();
+    _activeRouteId = routes.isEmpty ? null : routes.first.id;
+    if (routes.isNotEmpty) {
+      final departure = routes.first.schedule;
+      nextRouteDeparture = departure != null && departure.length >= 5
+          ? departure.substring(0, 5)
+          : departure;
+    }
+    notifyListeners();
+  }
+
+  Future<void> refreshRoutes() => _loadRoutes();
+
+  ParkRideRoute? _routeForOption(TransportOption option) {
+    final expectedType = option.id == 'OPT_02' ? 'van' : 'bus';
+    return routes.cast<ParkRideRoute?>().firstWhere(
+          (route) => route!.transportType == expectedType && route.isAvailable,
+          orElse: () => routes.cast<ParkRideRoute?>().firstWhere(
+                (route) => route!.transportType == expectedType,
+                orElse: () => null,
+              ),
+        );
+  }
+
+  static String _apiRoleFor(String role) {
+    if (ParkRideBusinessRules.isDriverRouteRole(role)) return 'route_driver';
+    if (normalizeRole(role) == ParkRideBusinessRules.adminRole)
+      return 'supervisor';
+    return 'passenger';
+  }
+
+  static String _apiTransportType(TransportOption option) {
+    if (option.id == 'OPT_02') return 'van';
+    if (option.id == 'OPT_03') return 'carpool';
+    return 'shuttle';
+  }
+
+  static UserModel _userFromApi(Map<String, dynamic> user) {
+    return UserModel(
+      idEmpleado: user['id'].toString(),
+      nombre: user['name'].toString(),
+      correo: user['email'].toString(),
+      departamento: (user['department'] ?? 'Sin departamento').toString(),
+      empresa: (user['company'] ?? 'ParkRide').toString(),
+      telefono: (user['phone'] ?? '+52 81 0000 0000').toString(),
+      turno: (user['shift'] ?? 'Turno Matutino').toString(),
+      saldoCreditos: 450,
+      rol: normalizeRole(user['role']?.toString()),
+      hasVehicle: ParkRideBusinessRules.isDriverRole(user['role']?.toString()),
+    );
   }
 
   void acceptDriverTrip() {

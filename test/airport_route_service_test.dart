@@ -4,8 +4,8 @@ import 'package:parkride/services/airport_route_service.dart';
 
 void main() {
   group('AirportRouteService', () {
-    test('genera exactamente 9 rutas con destinos metropolitanos y aeropuerto', () {
-      expect(AirportRouteService.fixedRoutes.length, 9);
+    test('conserva las tres rutas locales de respaldo', () {
+      expect(AirportRouteService.fixedRoutes.length, 3);
       for (final route in AirportRouteService.fixedRoutes) {
         expect(route.stops.isNotEmpty, isTrue);
       }

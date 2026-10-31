@@ -157,6 +157,60 @@ class LocationNode {
   }
 }
 
+class ParkRideRoute {
+  final String id;
+  final String name;
+  final String transportType;
+  final String color;
+  final String schedule;
+  final bool isAvailable;
+  final String? driverName;
+  final String? vehicleLabel;
+  final List<LocationNode> stops;
+
+  const ParkRideRoute({
+    required this.id,
+    required this.name,
+    required this.transportType,
+    required this.color,
+    required this.schedule,
+    required this.isAvailable,
+    required this.stops,
+    this.driverName,
+    this.vehicleLabel,
+  });
+
+  factory ParkRideRoute.fromApi(Map<String, dynamic> data) {
+    final rawStops = data['stops'] as List? ?? const [];
+    final stops = rawStops.map((raw) {
+      final stop = Map<String, dynamic>.from(raw as Map);
+      return LocationNode(
+        id: stop['id']?.toString() ?? '',
+        nombre: stop['stop_name']?.toString() ?? 'Parada',
+        zona: data['name']?.toString() ?? 'Ruta',
+        iconType: 'place',
+        latitude: (stop['latitude'] as num?)?.toDouble() ?? 25.7252,
+        longitude: (stop['longitude'] as num?)?.toDouble() ?? -100.3131,
+      );
+    }).toList();
+    final vehicle = data['vehicle'];
+    final driver = data['driver'];
+    return ParkRideRoute(
+      id: data['id'].toString(),
+      name: data['name']?.toString() ?? 'Ruta ParkRide',
+      transportType: data['transport_type']?.toString() ?? 'bus',
+      color: data['color']?.toString() ?? '#2563EB',
+      schedule: data['departure_time']?.toString() ?? 'Sin horario',
+      isAvailable: data['is_available'] == true,
+      stops: stops,
+      driverName: driver is Map ? driver['name']?.toString() : null,
+      vehicleLabel: vehicle is Map
+          ? '${vehicle['model'] ?? 'Unidad'} • ${vehicle['plate'] ?? ''}'
+          : null,
+    );
+  }
+}
+
 class TransportOption {
   final String id;
   final String title;

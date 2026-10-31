@@ -7,7 +7,6 @@ class UserProfile {
   final String? department;
   final String? employeeNumber;
   final String? phone;
-  final String? shift;
 
   const UserProfile({
     required this.id,
@@ -18,20 +17,16 @@ class UserProfile {
     this.department,
     this.employeeNumber,
     this.phone,
-    this.shift,
   });
 
-  factory UserProfile.fromJson(Map<String, dynamic> json) {
-    return UserProfile(
-      id: json['id']?.toString() ?? '',
-      email: json['email']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
-      role: json['role']?.toString() ?? 'passenger',
-      company: json['company']?.toString(),
-      department: json['department']?.toString(),
-      employeeNumber: json['employee_number']?.toString(),
-      phone: json['phone']?.toString(),
-      shift: json['shift']?.toString(),
-    );
-  }
+  factory UserProfile.fromJson(Map<String, dynamic> data) => UserProfile(
+        id: data['id']?.toString() ?? '',
+        email: data['email']?.toString() ?? '',
+        name: data['name']?.toString() ?? '',
+        role: data['role']?.toString() ?? 'passenger',
+        company: data['company']?.toString(),
+        department: data['department']?.toString(),
+        employeeNumber: data['employee_number']?.toString(),
+        phone: data['phone']?.toString(),
+      );
 }
