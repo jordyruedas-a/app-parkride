@@ -95,6 +95,20 @@ class ParkRideApiService {
     return _decodeObject(response);
   }
 
+  Future<List<Map<String, dynamic>>> getCarpoolRequests() async {
+    final response =
+        await _request('GET', '/carpool/requests', authenticated: true);
+    return _decodeList(response);
+  }
+
+  Future<void> decideCarpoolRequest(String requestId, bool accept) async {
+    await _request(
+      'POST',
+      '/carpool/requests/$requestId/${accept ? 'accept' : 'reject'}',
+      authenticated: true,
+    );
+  }
+
   Future<QrTicket> createTrip({
     required String routeId,
     required String transportType,

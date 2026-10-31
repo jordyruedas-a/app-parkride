@@ -229,6 +229,24 @@ class QRTokenResponse(BaseModel):
     expires_at: datetime
 
 
+class CarpoolRequestCreate(BaseModel):
+    volunteer_id: UUID
+    origin: str | None = Field(default=None, max_length=255)
+
+
+class CarpoolRequestResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    passenger_id: UUID
+    volunteer_id: UUID
+    status: Literal["pending", "accepted", "rejected"]
+    origin: str | None
+    created_at: datetime
+    decided_at: datetime | None
+    passenger_name: str | None = None
+
+
 class QRValidationRequest(BaseModel):
     token: UUID
     driver_id: UUID | None = None

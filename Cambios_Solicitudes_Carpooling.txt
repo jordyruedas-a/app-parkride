@@ -1,0 +1,9 @@
+SOLICITUDES DE CARPOOLING
+=========================
+
+- El backend almacena solicitudes con pasajero, conductor voluntario, origen,
+  fecha y estado pendiente/aceptada/rechazada.
+- El conductor voluntario activo abre Inicio > Solicitudes para ver su bandeja.
+- Cada solicitud muestra pasajero y origen, con botones para aceptar o rechazar.
+- Las decisiones se validan en el servidor: sólo el voluntario destinatario
+  puede decidir una solicitud pendiente.

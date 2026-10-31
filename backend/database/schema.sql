@@ -87,6 +87,17 @@ CREATE TABLE IF NOT EXISTS qr_tokens (
     used_by_driver_id UUID REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS carpool_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    passenger_id UUID NOT NULL REFERENCES users(id),
+    volunteer_id UUID NOT NULL REFERENCES users(id),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'accepted', 'rejected')),
+    origin VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    decided_at TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS reports (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     reporter_id UUID NOT NULL REFERENCES users(id),

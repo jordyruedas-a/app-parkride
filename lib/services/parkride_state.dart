@@ -209,6 +209,12 @@ class ParkRideState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<List<Map<String, dynamic>>> getCarpoolRequests() =>
+      _apiService.getCarpoolRequests();
+
+  Future<void> decideCarpoolRequest(String requestId, bool accept) =>
+      _apiService.decideCarpoolRequest(requestId, accept);
+
   Future<void> registerUser({
     required String nombre,
     required String email,

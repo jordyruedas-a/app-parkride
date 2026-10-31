@@ -116,6 +116,21 @@ class Trip(Base):
     driver = relationship("User", foreign_keys=[driver_id])
 
 
+class CarpoolRequest(Base):
+    __tablename__ = "carpool_requests"
+
+    id = Column(Uuid(as_uuid=True), primary_key=True, index=True)
+    passenger_id = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    volunteer_id = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    status = Column(String(20), nullable=False, default="pending")
+    origin = Column(String(255))
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    decided_at = Column(DateTime)
+
+    passenger = relationship("User", foreign_keys=[passenger_id])
+    volunteer = relationship("User", foreign_keys=[volunteer_id])
+
+
 class QRToken(Base):
     __tablename__ = "qr_tokens"
 

@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from typing import Literal
 from uuid import UUID, uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -9,9 +10,11 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth import create_access_token, get_current_user, hash_password, require_roles, verify_password
 from app.config import CORS_ORIGINS, QR_VALIDITY_MINUTES
 from app.database import get_db, initialize_database
-from app.models import QRToken, Report, Route, RouteStop, Trip, User, Vehicle
+from app.models import CarpoolRequest, QRToken, Report, Route, RouteStop, Trip, User, Vehicle
 from app.schemas import (
     AuthLogin,
+    CarpoolRequestCreate,
+    CarpoolRequestResponse,
     QRTokenResponse,
     QRValidationRequest,
     ReportCreate,
@@ -468,6 +471,79 @@ def list_trips(db: Session = Depends(get_db), current_user: User = Depends(get_c
             Route.is_active.is_(True),
         )
     return query.order_by(Trip.created_at.desc()).all()
+
+
+def _carpool_response(request: CarpoolRequest) -> dict:
+    return {
+        "id": request.id,
+        "passenger_id": request.passenger_id,
+        "volunteer_id": request.volunteer_id,
+        "status": request.status,
+        "origin": request.origin,
+        "created_at": request.created_at,
+        "decided_at": request.decided_at,
+        "passenger_name": request.passenger.name if request.passenger else None,
+    }
+
+
+@app.post("/carpool/requests", response_model=CarpoolRequestResponse, status_code=status.HTTP_201_CREATED)
+def request_carpool(
+    payload: CarpoolRequestCreate,
+    db: Session = Depends(get_db),
+    passenger: User = Depends(require_roles("passenger")),
+):
+    volunteer = db.query(User).filter(
+        User.id == payload.volunteer_id,
+        User.is_volunteer_driver.is_(True),
+        User.is_available_for_carpooling.is_(True),
+    ).first()
+    if volunteer is None or volunteer.id == passenger.id:
+        raise HTTPException(status_code=404, detail="Volunteer driver is not available")
+    existing = db.query(CarpoolRequest).filter(
+        CarpoolRequest.passenger_id == passenger.id,
+        CarpoolRequest.volunteer_id == volunteer.id,
+        CarpoolRequest.status == "pending",
+    ).first()
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="You already have a pending request")
+    request = CarpoolRequest(
+        id=uuid4(), passenger_id=passenger.id, volunteer_id=volunteer.id,
+        origin=payload.origin, status="pending",
+    )
+    db.add(request)
+    db.commit()
+    db.refresh(request)
+    return _carpool_response(request)
+
+
+@app.get("/carpool/requests", response_model=list[CarpoolRequestResponse])
+def list_carpool_requests(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not current_user.is_volunteer_driver:
+        raise HTTPException(status_code=403, detail="Volunteer driver mode is required")
+    requests = db.query(CarpoolRequest).options(selectinload(CarpoolRequest.passenger)).filter(
+        CarpoolRequest.volunteer_id == current_user.id,
+        CarpoolRequest.status == "pending",
+    ).order_by(CarpoolRequest.created_at.desc()).all()
+    return [_carpool_response(request) for request in requests]
+
+
+@app.post("/carpool/requests/{request_id}/{decision}", response_model=CarpoolRequestResponse)
+def decide_carpool_request(
+    request_id: UUID, decision: Literal["accept", "reject"], db: Session = Depends(get_db),
+    volunteer: User = Depends(get_current_user),
+):
+    request = db.query(CarpoolRequest).options(selectinload(CarpoolRequest.passenger)).filter(
+        CarpoolRequest.id == request_id, CarpoolRequest.volunteer_id == volunteer.id,
+    ).first()
+    if request is None:
+        raise HTTPException(status_code=404, detail="Carpool request not found")
+    if request.status != "pending":
+        raise HTTPException(status_code=409, detail="Carpool request was already decided")
+    request.status = "accepted" if decision == "accept" else "rejected"
+    request.decided_at = _utcnow()
+    db.commit()
+    db.refresh(request)
+    return _carpool_response(request)
 
 
 @app.post("/qr/validate")

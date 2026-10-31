@@ -244,6 +244,78 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
       ));
       return;
     }
+
+    Future<void> _showCarpoolRequests() async {
+      List<Map<String, dynamic>> requests;
+      try {
+        requests = await state.getCarpoolRequests();
+      } catch (error) {
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('No se pudieron cargar solicitudes: $error')));
+        return;
+      }
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.white,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setModalState) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text('Solicitudes de Carpooling',
+                    style:
+                        TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                if (requests.isEmpty)
+                  const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text('No tienes solicitudes pendientes.'))
+                else
+                  ...requests.map((request) => Card(
+                        child: ListTile(
+                          leading:
+                              const CircleAvatar(child: Icon(Icons.person)),
+                          title: Text(request['passenger_name']?.toString() ??
+                              'Pasajero'),
+                          subtitle: Text(request['origin']?.toString() ??
+                              'Origen no indicado'),
+                          trailing: Wrap(spacing: 4, children: [
+                            IconButton(
+                              tooltip: 'Rechazar',
+                              icon: const Icon(Icons.close, color: Colors.red),
+                              onPressed: () async {
+                                await state.decideCarpoolRequest(
+                                    request['id'].toString(), false);
+                                setModalState(() => requests.remove(request));
+                              },
+                            ),
+                            IconButton(
+                              tooltip: 'Aceptar',
+                              icon: const Icon(Icons.check_circle,
+                                  color: Color(0xFF16A34A)),
+                              onPressed: () async {
+                                await state.decideCarpoolRequest(
+                                    request['id'].toString(), true);
+                                setModalState(() => requests.remove(request));
+                                if (mounted)
+                                  ScaffoldMessenger.of(this.context)
+                                      .showSnackBar(const SnackBar(
+                                          content: Text('Pasajero aceptado.'),
+                                          backgroundColor: Color(0xFF16A34A)));
+                              },
+                            ),
+                          ]),
+                        ),
+                      )),
+              ]),
+            ),
+          ),
+        ),
+      );
+    }
+
     final location =
         await ParkRideLocationService().getCurrentLocationWithAddress();
     if (!mounted || location == null) {
@@ -354,6 +426,77 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
                                 backgroundColor: Color(0xFF22C55E)));
                     },
                   )),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showCarpoolRequests() async {
+    List<Map<String, dynamic>> requests;
+    try {
+      requests = await state.getCarpoolRequests();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('No se pudieron cargar solicitudes: $error')));
+      }
+      return;
+    }
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Text('Solicitudes de Carpooling',
+                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              if (requests.isEmpty)
+                const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('No tienes solicitudes pendientes.'))
+              else
+                ...requests.map((request) => Card(
+                      child: ListTile(
+                        leading: const CircleAvatar(child: Icon(Icons.person)),
+                        title: Text(request['passenger_name']?.toString() ??
+                            'Pasajero'),
+                        subtitle: Text(request['origin']?.toString() ??
+                            'Origen no indicado'),
+                        trailing: Wrap(spacing: 4, children: [
+                          IconButton(
+                            tooltip: 'Rechazar',
+                            icon: const Icon(Icons.close, color: Colors.red),
+                            onPressed: () async {
+                              await state.decideCarpoolRequest(
+                                  request['id'].toString(), false);
+                              setModalState(() => requests.remove(request));
+                            },
+                          ),
+                          IconButton(
+                            tooltip: 'Aceptar',
+                            icon: const Icon(Icons.check_circle,
+                                color: Color(0xFF16A34A)),
+                            onPressed: () async {
+                              await state.decideCarpoolRequest(
+                                  request['id'].toString(), true);
+                              setModalState(() => requests.remove(request));
+                              if (mounted) {
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Pasajero aceptado.'),
+                                        backgroundColor: Color(0xFF16A34A)));
+                              }
+                            },
+                          ),
+                        ]),
+                      ),
+                    )),
             ]),
           ),
         ),
@@ -505,7 +648,7 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
                         ),
                         OutlinedButton.icon(
                           onPressed: user.isAvailableForCarpooling
-                              ? () async => state.deactivateVolunteerRoute()
+                              ? _showCarpoolRequests
                               : _showVolunteerRouteSheet,
                           icon: Icon(
                               user.isAvailableForCarpooling
@@ -514,7 +657,7 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
                               size: 16,
                               color: Color(0xFF1E293B)),
                           label: const Text(
-                            "Carpooling",
+                            "Solicitudes",
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
