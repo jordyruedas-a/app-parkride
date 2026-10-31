@@ -43,12 +43,14 @@ class _CampusFlutterMapState extends State<CampusFlutterMap> {
   bool _isLoadingRoute = false;
   String? _routeError;
   List<LatLng> _resolvedRoutePoints = <LatLng>[];
+  Map<String, List<LatLng>> _routeGeometries = const {};
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
     _loadRouteIfNeeded();
+    _loadRouteGeometries();
   }
 
   @override
@@ -58,6 +60,40 @@ class _CampusFlutterMapState extends State<CampusFlutterMap> {
         oldWidget.selectedDestino != widget.selectedDestino ||
         oldWidget.routePoints != widget.routePoints) {
       _loadRouteIfNeeded();
+    }
+    if (oldWidget.routes != widget.routes ||
+        oldWidget.transportFilter != widget.transportFilter) {
+      _loadRouteGeometries();
+    }
+    if (oldWidget.initialCenter != widget.initialCenter) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _mapController.move(widget.initialCenter, widget.initialZoom);
+        }
+      });
+    }
+  }
+
+  Future<void> _loadRouteGeometries() async {
+    final visibleRoutes = widget.routes.where((route) {
+      return widget.transportFilter == null ||
+          route.transportType == widget.transportFilter;
+    }).toList();
+    final routeGeometries = <String, List<LatLng>>{};
+
+    await Future.wait(visibleRoutes.map((route) async {
+      final geometry = await RoutingService.getRouteForStops(
+        route.stops.map((stop) => stop.latLng).toList(),
+      );
+      if (geometry.length >= 2) {
+        routeGeometries[route.id] = geometry;
+      }
+    }));
+
+    if (mounted) {
+      setState(() {
+        _routeGeometries = routeGeometries;
+      });
     }
   }
 
@@ -107,20 +143,8 @@ class _CampusFlutterMapState extends State<CampusFlutterMap> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _resolvedRoutePoints = <LatLng>[
-          widget.selectedOrigen!.latLng,
-          LatLng(
-            (widget.selectedOrigen!.latitude +
-                    widget.selectedDestino!.latitude) /
-                2,
-            (widget.selectedOrigen!.longitude +
-                    widget.selectedDestino!.longitude) /
-                2,
-          ),
-          widget.selectedDestino!.latLng,
-        ];
-        _routeError =
-            'No se pudo cargar la ruta real. Se mostró una ruta alternativa.';
+        _resolvedRoutePoints = <LatLng>[];
+        _routeError = 'No se pudo cargar una ruta por calles.';
         _isLoadingRoute = false;
       });
     }
@@ -250,10 +274,12 @@ class _CampusFlutterMapState extends State<CampusFlutterMap> {
     final routePolylines = <Polyline>[];
     for (final route in visibleRoutes) {
       if (route.stops.length < 2) continue;
+      final geometry = _routeGeometries[route.id];
+      if (geometry == null || geometry.length < 2) continue;
       final color = _colorFromHex(route.color);
       routePolylines.add(
         Polyline(
-          points: route.stops.map((stop) => stop.latLng).toList(),
+          points: geometry,
           strokeWidth: 5,
           color: color,
         ),
@@ -338,22 +364,7 @@ class _CampusFlutterMapState extends State<CampusFlutterMap> {
 
     final polylinePoints = widget.routePoints.isNotEmpty
         ? widget.routePoints
-        : (_resolvedRoutePoints.isNotEmpty
-            ? _resolvedRoutePoints
-            : (widget.selectedOrigen != null && widget.selectedDestino != null
-                ? <LatLng>[
-                    widget.selectedOrigen!.latLng,
-                    LatLng(
-                      (widget.selectedOrigen!.latitude +
-                              widget.selectedDestino!.latitude) /
-                          2,
-                      (widget.selectedOrigen!.longitude +
-                              widget.selectedDestino!.longitude) /
-                          2,
-                    ),
-                    widget.selectedDestino!.latLng,
-                  ]
-                : <LatLng>[]));
+        : (_resolvedRoutePoints.isNotEmpty ? _resolvedRoutePoints : <LatLng>[]);
 
     final polylines = <Polyline>[
       ...routePolylines,

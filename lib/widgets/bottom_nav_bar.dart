@@ -41,10 +41,6 @@ class ParkRideBottomNavBar extends StatelessWidget {
         label: 'Mis Viajes',
         route: '/HistorialViajes'),
     ParkRideNavItem(
-        icon: Icons.bar_chart_rounded,
-        label: 'Reportes',
-        route: '/ReportesESG'),
-    ParkRideNavItem(
         icon: Icons.person_rounded,
         label: 'Perfil',
         route: '/ParkrideProfileSettings'),

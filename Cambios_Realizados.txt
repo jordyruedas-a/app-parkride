@@ -1,0 +1,32 @@
+PARKRIDE - CAMBIOS REALIZADOS
+================================
+
+Geolocalización y mapas
+- El origen de Solicitar Viaje se obtiene por GPS con geocodificación inversa.
+- El mapa principal sigue actualizaciones de ubicación cada 20 metros.
+- El mapa se recentra al cambiar la ubicación del usuario.
+- Las rutas de usuario y de transporte se consultan en OSRM por HTTPS.
+- Se eliminaron los segmentos rectos falsos: una ruta sólo se dibuja si OSRM devuelve una geometría válida.
+- La visibilidad de rutas depende de la opción Camión, Van Empresarial o Carpooling elegida en el panel inferior.
+
+Navegación y perfil
+- El menú de pasajero ahora tiene Inicio, Solicitar, Mis Viajes y Perfil.
+- Reportar incidencia se movió a Perfil.
+- El formulario de vehículos separa Marca, Modelo, Placa, Aseguradora y Número de póliza.
+
+QR y permisos
+- Android declara CAMERA y iOS declara NSCameraUsageDescription.
+- El escáner solicita la cámara antes de iniciar y dirige a Configuración cuando el permiso es permanente denegado.
+- El QR muestra el tiempo restante en MM:SS a partir de la fecha exacta entregada por el backend.
+
+Backend y despliegue
+- El backend crea QR con expiración de 15 minutos y valida expiración, ruta, chofer y uso único.
+- seed_demo.py crea o actualiza 10 rutas consistentes: 5 camiones y 5 vans, cada una con chofer, vehículo y paradas.
+- Render: https://parkride-api.onrender.com
+- Para compilar contra Render:
+  flutter build apk --release --dart-define=PARKRIDE_API_URL=https://parkride-api.onrender.com
+
+Validación manual
+- En el emulador, define una ubicación en Extended Controls > Location.
+- En el emulador, configura una cámara en Extended Controls > Camera antes de probar QR.
+- La instancia gratuita de Render puede tardar aproximadamente un minuto en iniciar tras 15 minutos sin tráfico.

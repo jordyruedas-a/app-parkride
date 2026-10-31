@@ -46,7 +46,35 @@ class _CodigoQRScreenState extends State<CodigoQRScreen> {
     });
     if (status.isGranted) {
       await _scannerController.start();
+    } else if (status.isPermanentlyDenied) {
+      await _showCameraSettingsDialog();
     }
+  }
+
+  Future<void> _showCameraSettingsDialog() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Permiso de cámara requerido'),
+        content: const Text(
+          'Activa el permiso de cámara en la configuración del dispositivo para escanear pases QR.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              openAppSettings();
+            },
+            child: const Text('Abrir configuración'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

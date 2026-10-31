@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/parkride_models.dart';
@@ -24,6 +26,7 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
   late LatLng _mapCenter;
   String? _transportFilter;
   String _originLabel = 'Obteniendo ubicación actual...';
+  StreamSubscription<ParkRideCurrentLocation>? _locationSubscription;
 
   @override
   void initState() {
@@ -32,7 +35,9 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
     _mapCenter = state.userCurrentLocation;
     _initializeDefaultNodes();
     _refreshUserLocation();
+    _watchUserLocation();
     selectedOption = state.availableOptions.first;
+    _transportFilter = _transportTypeFor(selectedOption!);
     state.refreshRoutes();
   }
 
@@ -67,6 +72,28 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
     });
   }
 
+  void _watchUserLocation() {
+    _locationSubscription =
+        ParkRideLocationService().watchCurrentLocationWithAddress().listen(
+      (location) {
+        if (!mounted) return;
+        setState(() {
+          state.userCurrentLocation = location.coordinates;
+          _mapCenter = location.coordinates;
+          _originLabel = location.address;
+          selectedOrigen = LocationNode(
+            id: 'current-location',
+            nombre: location.address,
+            zona: 'Ubicación actual',
+            iconType: 'my_location',
+            latitude: location.coordinates.latitude,
+            longitude: location.coordinates.longitude,
+          );
+        });
+      },
+    );
+  }
+
   void _initializeDefaultNodes() {
     if (state.nodes.isEmpty) {
       selectedOrigen = null;
@@ -82,6 +109,7 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
   @override
   void dispose() {
     state.removeListener(_onStateChange);
+    _locationSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -419,16 +447,6 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        Wrap(
-                          spacing: 6,
-                          children: [
-                            _buildTransportFilter('Todos', null),
-                            _buildTransportFilter('Camión', 'bus'),
-                            _buildTransportFilter('Van', 'van'),
-                            _buildTransportFilter('Carpool', 'carpool'),
-                          ],
-                        ),
                       ],
                     ),
                   ),
@@ -566,8 +584,10 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
                           final isSelected = selectedOption?.id == option.id;
 
                           return GestureDetector(
-                            onTap: () =>
-                                setState(() => selectedOption = option),
+                            onTap: () => setState(() {
+                              selectedOption = option;
+                              _transportFilter = _transportTypeFor(option);
+                            }),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 180),
                               width: 120,
@@ -692,21 +712,11 @@ class _ParkrideDashboardState extends State<ParkrideDashboard> {
     );
   }
 
-  Widget _buildTransportFilter(String label, String? type) {
-    final selected = _transportFilter == type;
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => setState(() => _transportFilter = type),
-      backgroundColor: Colors.white.withValues(alpha: 0.1),
-      selectedColor: const Color(0xFF22C55E),
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : const Color(0xFFE2E8F0),
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
-      ),
-      visualDensity: VisualDensity.compact,
-      side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-    );
+  String _transportTypeFor(TransportOption option) {
+    return option.id == 'OPT_02'
+        ? 'van'
+        : option.id == 'OPT_03'
+            ? 'carpool'
+            : 'bus';
   }
 }

@@ -64,7 +64,24 @@ class ParkRideLocationService {
   Future<ParkRideCurrentLocation?> getCurrentLocationWithAddress() async {
     final coordinates = await getCurrentPosition();
     if (coordinates == null) return null;
+    return _withAddress(coordinates);
+  }
 
+  Stream<ParkRideCurrentLocation> watchCurrentLocationWithAddress() async* {
+    final allowed = await requestLocationPermission();
+    if (!allowed) return;
+
+    await for (final position in Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 20,
+      ),
+    )) {
+      yield await _withAddress(LatLng(position.latitude, position.longitude));
+    }
+  }
+
+  Future<ParkRideCurrentLocation> _withAddress(LatLng coordinates) async {
     try {
       final placemarks = await placemarkFromCoordinates(
         coordinates.latitude,

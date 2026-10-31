@@ -7,13 +7,12 @@ import 'package:latlong2/latlong.dart';
 
 class RoutingService {
   static const String _osrmBaseUrl =
-      'http://router.project-osrm.org/route/v1/driving';
+      'https://router.project-osrm.org/route/v1/driving';
 
   static Future<List<LatLng>> getRoutePoints(
     LatLng origin,
-    LatLng destination, {
-    bool useFallback = true,
-  }) async {
+    LatLng destination,
+  ) async {
     final url = Uri.parse(
       '$_osrmBaseUrl/${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}?overview=full&geometries=polyline',
     );
@@ -50,19 +49,23 @@ class RoutingService {
           .toList();
     } catch (e) {
       debugPrint('[RoutingService] Error calculando ruta con OSRM: $e');
+      return <LatLng>[];
+    }
+  }
 
-      if (!useFallback) {
+  static Future<List<LatLng>> getRouteForStops(List<LatLng> stops) async {
+    if (stops.length < 2) {
+      return <LatLng>[];
+    }
+
+    final points = <LatLng>[];
+    for (var index = 0; index < stops.length - 1; index++) {
+      final segment = await getRoutePoints(stops[index], stops[index + 1]);
+      if (segment.isEmpty) {
         return <LatLng>[];
       }
-
-      return <LatLng>[
-        origin,
-        LatLng(
-          (origin.latitude + destination.latitude) / 2,
-          (origin.longitude + destination.longitude) / 2,
-        ),
-        destination,
-      ];
+      points.addAll(points.isEmpty ? segment : segment.skip(1));
     }
+    return points;
   }
 }

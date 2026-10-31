@@ -20,7 +20,14 @@ class _ParkrideProfileSettingsState extends State<ParkrideProfileSettings> {
   late final TextEditingController _departmentController;
   late final TextEditingController _vehicleController;
   final List<Map<String, String>> _vehicles = [
-    {'modelo': 'Toyota Corolla', 'placa': 'ABC-1234', 'tipo': 'Sedán'},
+    {
+      'marca': 'Toyota',
+      'modelo': 'Corolla',
+      'placa': 'ABC-1234',
+      'tipo': 'Sedán',
+      'aseguradora': 'Sin especificar',
+      'poliza': 'Sin especificar',
+    },
   ];
 
   @override
@@ -71,9 +78,12 @@ class _ParkrideProfileSettingsState extends State<ParkrideProfileSettings> {
 
   Future<void> _showVehicleForm() async {
     final plateController = TextEditingController();
+    final brandController = TextEditingController();
     final modelController = TextEditingController();
     final typeController = TextEditingController();
     final colorController = TextEditingController();
+    final insurerController = TextEditingController();
+    final policyController = TextEditingController();
 
     await showModalBottomSheet<void>(
       context: context,
@@ -106,6 +116,11 @@ class _ParkrideProfileSettingsState extends State<ParkrideProfileSettings> {
                 ),
                 const SizedBox(height: 16),
                 TextField(
+                  controller: brandController,
+                  decoration: const InputDecoration(labelText: 'Marca'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
                   controller: modelController,
                   decoration: const InputDecoration(labelText: 'Modelo'),
                 ),
@@ -126,23 +141,42 @@ class _ParkrideProfileSettingsState extends State<ParkrideProfileSettings> {
                   controller: colorController,
                   decoration: const InputDecoration(labelText: 'Color'),
                 ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: insurerController,
+                  decoration: const InputDecoration(labelText: 'Aseguradora'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: policyController,
+                  decoration:
+                      const InputDecoration(labelText: 'Número de póliza'),
+                ),
                 const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      if (modelController.text.trim().isEmpty ||
+                      if (brandController.text.trim().isEmpty ||
+                          modelController.text.trim().isEmpty ||
                           plateController.text.trim().isEmpty ||
                           typeController.text.trim().isEmpty) {
                         return;
                       }
                       _vehicles.add({
+                        'marca': brandController.text.trim(),
                         'modelo': modelController.text.trim(),
                         'placa': plateController.text.trim(),
                         'tipo': typeController.text.trim(),
                         'color': colorController.text.trim().isEmpty
                             ? 'Sin especificar'
                             : colorController.text.trim(),
+                        'aseguradora': insurerController.text.trim().isEmpty
+                            ? 'Sin especificar'
+                            : insurerController.text.trim(),
+                        'poliza': policyController.text.trim().isEmpty
+                            ? 'Sin especificar'
+                            : policyController.text.trim(),
                       });
                       setState(() {});
                       Navigator.pop(context);
@@ -415,7 +449,8 @@ class _ParkrideProfileSettingsState extends State<ParkrideProfileSettings> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              vehicle['modelo'] ?? 'Vehículo',
+                              '${vehicle['marca'] ?? ''} ${vehicle['modelo'] ?? 'Vehículo'}'
+                                  .trim(),
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF1E293B)),
@@ -425,6 +460,10 @@ class _ParkrideProfileSettingsState extends State<ParkrideProfileSettings> {
                             Text('Tipo: ${vehicle['tipo'] ?? '-'}'),
                             Text(
                                 'Color: ${vehicle['color'] ?? 'Sin especificar'}'),
+                            Text(
+                                'Aseguradora: ${vehicle['aseguradora'] ?? 'Sin especificar'}'),
+                            Text(
+                                'Póliza: ${vehicle['poliza'] ?? 'Sin especificar'}'),
                           ],
                         ),
                       );
@@ -432,6 +471,23 @@ class _ParkrideProfileSettingsState extends State<ParkrideProfileSettings> {
                   ),
               ],
               const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.pushNamed(context, '/ReportesESG'),
+                  icon: const Icon(Icons.report_problem_outlined),
+                  label: const Text('Reportar incidencia'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFB45309),
+                    side: const BorderSide(color: Color(0xFFF59E0B)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -462,7 +518,7 @@ class _ParkrideProfileSettingsState extends State<ParkrideProfileSettings> {
               currentIndex: 3,
               items: ParkRideBottomNavBar.driverItems,
             )
-          : const ParkRideBottomNavBar(currentIndex: 4),
+          : const ParkRideBottomNavBar(currentIndex: 3),
     );
   }
 }
