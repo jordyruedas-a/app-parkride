@@ -34,6 +34,10 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // ML Kit registers barcode components dynamically. Keeping release
+            // code unshrunk prevents R8 from removing those registrars.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
