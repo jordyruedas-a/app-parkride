@@ -187,6 +187,7 @@ class ParkRideState extends ChangeNotifier {
         await _apiService.updateCurrentUser(currentUser.idEmpleado, {
       'is_volunteer_driver': true,
       'is_available_for_carpooling': true,
+      'volunteer_status': 'searching_passengers',
       'carpool_avenues': avenues,
       'carpool_destination': destination,
       'carpool_route': route
@@ -203,6 +204,7 @@ class ParkRideState extends ChangeNotifier {
     final response =
         await _apiService.updateCurrentUser(currentUser.idEmpleado, {
       'is_available_for_carpooling': false,
+      'volunteer_status': 'offline',
     });
     final updated = _userFromApi(response);
     currentUser = updated.copyWith(rol: normalizeRole(updated.rol));
@@ -214,6 +216,15 @@ class ParkRideState extends ChangeNotifier {
 
   Future<void> decideCarpoolRequest(String requestId, bool accept) =>
       _apiService.decideCarpoolRequest(requestId, accept);
+
+  Future<List<Map<String, dynamic>>> getAvailableVolunteers() =>
+      _apiService.getAvailableVolunteers();
+
+  Future<void> requestCarpool({
+    required String volunteerId,
+    required String origin,
+  }) =>
+      _apiService.requestCarpool(volunteerId: volunteerId, origin: origin);
 
   Future<void> registerUser({
     required String nombre,
@@ -349,6 +360,7 @@ class ParkRideState extends ChangeNotifier {
       origin: origen.nombre,
       destination: destino.nombre,
       creditCost: option.costCredits,
+      vehicleType: option.id == 'OPT_02' ? 'van' : 'camion',
     );
     final newTrip = TripModel(
       idViaje: ticket.tripId,
@@ -469,6 +481,7 @@ class ParkRideState extends ChangeNotifier {
           .map((item) => item.toString())
           .toList(),
       isAvailableForCarpooling: user['is_available_for_carpooling'] == true,
+      volunteerStatus: user['volunteer_status']?.toString() ?? 'offline',
       carpoolDestination: user['carpool_destination']?.toString(),
       carpoolRoute: (user['carpool_route'] as List? ?? const []).map((point) {
         final item = Map<String, dynamic>.from(point as Map);

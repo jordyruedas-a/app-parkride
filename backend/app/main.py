@@ -30,6 +30,7 @@ from app.schemas import (
     UserUpdate,
     VehicleCreate,
     VehicleResponse,
+    VolunteerDriverResponse,
 )
 
 app = FastAPI(title="ParkRide API", version="1.0.0")
@@ -168,6 +169,13 @@ def _create_trip_with_qr(payload: TripCreate, db: Session, passenger: User) -> Q
         raise HTTPException(status_code=409, detail="Route is not available")
     if route.driver_id is None:
         raise HTTPException(status_code=409, detail="Route has no assigned driver")
+    route_vehicle_type = "van" if route.transport_type == "van" else "camion"
+    if payload.vehicle_type is not None and payload.vehicle_type != route_vehicle_type:
+        raise HTTPException(
+            status_code=422,
+            detail="El tipo de vehículo debe coincidir con la ruta seleccionada",
+        )
+    vehicle_type = payload.vehicle_type or route_vehicle_type
 
     trip = Trip(
         id=uuid4(),
@@ -175,6 +183,7 @@ def _create_trip_with_qr(payload: TripCreate, db: Session, passenger: User) -> Q
         driver_id=route.driver_id,
         route_id=route.id,
         transport_type=route.transport_type,
+        vehicle_type=vehicle_type,
         status="requested",
         origin=payload.origin,
         destination=payload.destination,
@@ -486,6 +495,18 @@ def _carpool_response(request: CarpoolRequest) -> dict:
     }
 
 
+@app.get("/carpool/volunteers", response_model=list[VolunteerDriverResponse])
+def list_available_volunteers(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("passenger")),
+):
+    return db.query(User).filter(
+        User.is_volunteer_driver.is_(True),
+        User.is_available_for_carpooling.is_(True),
+        User.volunteer_status == "searching_passengers",
+    ).order_by(User.name).all()
+
+
 @app.post("/carpool/requests", response_model=CarpoolRequestResponse, status_code=status.HTTP_201_CREATED)
 def request_carpool(
     payload: CarpoolRequestCreate,
@@ -568,35 +589,25 @@ def validate_qr(
     if trip is None or trip.passenger_id is None or trip.route_id is None:
         raise HTTPException(status_code=404, detail="Trip not found")
     passenger = db.query(User).filter(User.id == trip.passenger_id, User.role == "passenger").first()
-    route = db.query(Route).filter(Route.id == trip.route_id).first()
-    if (
-        passenger is None
-        or route is None
-        or not route.is_active
-        or not route.is_available
-        or route.driver_id != driver.id
-    ):
-        raise HTTPException(status_code=403, detail="QR is not valid for this driver's route")
-    if trip.driver_id is not None and trip.driver_id != driver.id:
-        raise HTTPException(status_code=403, detail="Trip is not assigned to this driver")
-
-    valid_route_trip = exists().where(
-        Trip.id == QRToken.trip_id,
-        Trip.passenger_id == User.id,
-        User.role == "passenger",
-        Route.id == Trip.route_id,
+    driver_route = db.query(Route).join(Vehicle).filter(
+        Route.driver_id == driver.id,
         Route.is_active.is_(True),
         Route.is_available.is_(True),
-        Route.driver_id == driver.id,
-        or_(Trip.driver_id.is_(None), Trip.driver_id == driver.id),
-    )
+    ).first()
+    if passenger is None or driver_route is None or driver_route.vehicle is None:
+        raise HTTPException(status_code=403, detail="El chofer no tiene una unidad activa asignada")
+    driver_vehicle_type = "van" if driver_route.vehicle.transport_type == "van" else "camion"
+    if trip.vehicle_type != driver_vehicle_type:
+        expected = "Van" if trip.vehicle_type == "van" else "Camión"
+        actual = "Van" if driver_vehicle_type == "van" else "Camión"
+        raise HTTPException(status_code=403, detail=f"Este pasaje es para {expected}, no para {actual}")
+
     consumed = db.execute(
         update(QRToken)
         .where(
             QRToken.id == token.id,
             QRToken.used.is_(False),
             QRToken.expires_at > now,
-            valid_route_trip,
         )
         .values(used=True, used_by_driver_id=driver.id)
     )
@@ -604,6 +615,7 @@ def validate_qr(
         db.rollback()
         raise HTTPException(status_code=409, detail="QR has already been consumed or expired")
     trip.status = "completed"
+    trip.driver_id = driver.id
     trip.completed_at = now
     trip.used_at = now
     db.commit()

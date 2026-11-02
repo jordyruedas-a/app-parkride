@@ -41,6 +41,7 @@ def _add_missing_route_columns() -> None:
         "carpool_avenues": "JSON NOT NULL DEFAULT '[]'",
         "carpool_vehicles": "JSON NOT NULL DEFAULT '[]'",
         "is_available_for_carpooling": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "volunteer_status": "VARCHAR(30) NOT NULL DEFAULT 'offline'",
         "carpool_destination": "VARCHAR(255)",
         "carpool_route": "JSON NOT NULL DEFAULT '[]'",
     }
@@ -48,6 +49,13 @@ def _add_missing_route_columns() -> None:
         for name, definition in user_additions.items():
             if name not in user_columns:
                 connection.execute(text(f"ALTER TABLE users ADD COLUMN {name} {definition}"))
+
+    trip_columns = {column["name"] for column in inspector.get_columns("trips")}
+    if "vehicle_type" not in trip_columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE trips ADD COLUMN vehicle_type VARCHAR(20) NOT NULL DEFAULT 'camion'")
+            )
 
 
 def initialize_database() -> None:

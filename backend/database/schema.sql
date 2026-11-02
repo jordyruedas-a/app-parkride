@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS users (
     carpool_avenues JSON NOT NULL DEFAULT '[]',
     carpool_vehicles JSON NOT NULL DEFAULT '[]',
     is_available_for_carpooling BOOLEAN NOT NULL DEFAULT FALSE,
+    volunteer_status VARCHAR(30) NOT NULL DEFAULT 'offline'
+        CHECK (volunteer_status IN ('offline', 'searching_passengers')),
     carpool_destination VARCHAR(255),
     carpool_route JSON NOT NULL DEFAULT '[]',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -66,6 +68,8 @@ CREATE TABLE IF NOT EXISTS trips (
     driver_id UUID REFERENCES users(id),
     route_id UUID NOT NULL REFERENCES routes(id),
     transport_type VARCHAR(50) NOT NULL CHECK (transport_type IN ('shuttle', 'van', 'carpool')),
+    vehicle_type VARCHAR(20) NOT NULL DEFAULT 'camion'
+        CHECK (vehicle_type IN ('camion', 'van')),
     status VARCHAR(30) NOT NULL DEFAULT 'requested',
     origin VARCHAR(255),
     destination VARCHAR(255),

@@ -46,6 +46,7 @@ class UserUpdate(BaseModel):
     carpool_avenues: list[str] | None = None
     carpool_vehicles: list[dict] | None = None
     is_available_for_carpooling: bool | None = None
+    volunteer_status: Literal["offline", "searching_passengers"] | None = None
     carpool_destination: str | None = None
     carpool_route: list[dict] | None = None
 
@@ -73,6 +74,7 @@ class UserResponse(BaseModel):
     carpool_avenues: list[str] = Field(default_factory=list)
     carpool_vehicles: list[dict] = Field(default_factory=list)
     is_available_for_carpooling: bool
+    volunteer_status: Literal["offline", "searching_passengers"]
     carpool_destination: str | None = None
     carpool_route: list[dict] = Field(default_factory=list)
 
@@ -200,6 +202,7 @@ class TripCreate(BaseModel):
     driver_id: UUID | None = None
     route_id: UUID
     transport_type: Literal["bus", "van", "shuttle", "carpool"] | None = None
+    vehicle_type: Literal["camion", "van"] | None = None
     origin: str | None = None
     destination: str | None = None
     credit_cost: int = Field(default=0, ge=0)
@@ -213,6 +216,7 @@ class TripResponse(BaseModel):
     driver_id: UUID | None
     route_id: UUID
     transport_type: str
+    vehicle_type: Literal["camion", "van"]
     status: str
     origin: str | None
     destination: str | None
@@ -232,6 +236,14 @@ class QRTokenResponse(BaseModel):
 class CarpoolRequestCreate(BaseModel):
     volunteer_id: UUID
     origin: str | None = Field(default=None, max_length=255)
+
+
+class VolunteerDriverResponse(BaseModel):
+    id: UUID
+    name: str
+    carpool_avenues: list[str] = Field(default_factory=list)
+    carpool_destination: str | None = None
+    carpool_route: list[dict] = Field(default_factory=list)
 
 
 class CarpoolRequestResponse(BaseModel):

@@ -19,6 +19,8 @@ class CampusFlutterMap extends StatefulWidget {
   final String? transportFilter;
   final List<LatLng> volunteerRoute;
   final bool volunteerAvailable;
+  final List<Map<String, dynamic>> volunteerDrivers;
+  final ValueChanged<Map<String, dynamic>>? onVolunteerSelected;
 
   const CampusFlutterMap({
     super.key,
@@ -35,6 +37,8 @@ class CampusFlutterMap extends StatefulWidget {
     this.transportFilter,
     this.volunteerRoute = const [],
     this.volunteerAvailable = false,
+    this.volunteerDrivers = const [],
+    this.onVolunteerSelected,
   });
 
   @override
@@ -364,6 +368,33 @@ class _CampusFlutterMapState extends State<CampusFlutterMap> {
           ),
         ),
       );
+    }
+
+    if (widget.transportFilter == 'carpool') {
+      for (final volunteer in widget.volunteerDrivers) {
+        final route = volunteer['carpool_route'] as List? ?? const [];
+        if (route.isEmpty) continue;
+        final firstPoint = Map<String, dynamic>.from(route.first as Map);
+        final latitude = (firstPoint['latitude'] as num?)?.toDouble();
+        final longitude = (firstPoint['longitude'] as num?)?.toDouble();
+        if (latitude == null || longitude == null) continue;
+        markers.add(Marker(
+          point: LatLng(latitude, longitude),
+          width: 52,
+          height: 52,
+          child: GestureDetector(
+            onTap: () => widget.onVolunteerSelected?.call(volunteer),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF9333EA),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: const Icon(Icons.radar_rounded, color: Colors.white),
+            ),
+          ),
+        ));
+      }
     }
 
     final polylinePoints = widget.routePoints.isNotEmpty

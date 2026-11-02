@@ -1,0 +1,24 @@
+PARKRIDE V6 - QR POR TIPO Y RADAR VOLUNTARIO
+=============================================
+
+QR POR TIPO DE VEHICULO
+1. Como pasajero, selecciona Camión o Van y solicita un traslado.
+2. El QR se emite por 15 minutos con vehicle_type=camion o vehicle_type=van.
+3. Un chofer de cualquier ruta de la misma categoría puede escanearlo.
+4. Una categoría distinta recibe: "Este pasaje es para Camión, no para Van"
+   (o el mensaje inverso).
+5. Tras validar, el QR queda usado inmediatamente y no se puede reutilizar.
+
+RADAR DE CONDUCTOR VOLUNTARIO
+1. Registra un vehículo en Perfil.
+2. En Inicio toca "Modo Chófer", configura avenidas y terminal.
+3. El panel de opciones de pasajero se sustituye por el radar.
+4. El radar consulta solicitudes pendientes cada ocho segundos.
+5. Toca una solicitud para aceptar o rechazar. Toca "Desconectar" para
+   restaurar la interfaz de pasajero.
+6. Desde otra cuenta, selecciona Carpooling en Inicio, toca un marcador morado
+   de radar y pulsa "Solicitar Carpooling".
+
+DESPLIEGUE
+El push a main activa el despliegue automático de Render. Su inicialización
+agrega vehicle_type a trips y volunteer_status a users sin borrar datos.

@@ -1,0 +1,76 @@
+*Actividad Fundamental Número 3: Manual de Usuario*
+*Sistema ParkRide*
+
+- 1.1. Portada Institucional
+Logotipos: insertar los de FIME/UANL y ParkRide en la versión impresa. Proyecto: ParkRide. Equipo, matrículas, profesor y fecha: completar con los datos oficiales de entrega.
+
+- 1.2. Índice
+Generar la tabla de contenido automática en Word/LibreOffice después de paginar este archivo convertido a documento.
+
+*2. Introducción*
+- 2.1. Descripción general del sistema
+ParkRide atiende la necesidad de coordinar traslados corporativos/universitarios, rutas de camión, van y viajes compartidos desde una aplicación móvil. La solución usa mapas, ubicación GPS, rutas por calles, códigos QR y perfiles de pasajeros, choferes de ruta, supervisores y conductores voluntarios.
+Este manual explica el uso cotidiano de la aplicación y sus mensajes. Debe leerse antes de operar rutas, solicitar un traslado o habilitar Carpooling.
+- 2.2. Objetivo del manual
+Guiar al usuario paso a paso, reducir errores y facilitar el uso seguro de ParkRide.
+- 2.3. Perfil del cliente/usuario objetivo
+Personas mayores de 16 años con Android/iOS y conocimientos básicos de teléfono. Roles: pasajero, chofer de ruta, conductor voluntario y supervisor.
+- 2.4. Alcance del sistema
+Incluye autenticación, mapas, solicitud de viajes, QR, perfiles, reportes, rutas de camión/van y Carpooling. No sustituye una app de navegación ni garantiza disponibilidad de unidades o señal GPS.
+
+*3. Requisitos del Sistema*
+- 3.1. Requisitos de software y hardware
+Android 5.0 o posterior; iOS compatible con Flutter; Internet, GPS y cámara. Recomendado: 2 GB RAM libres, pantalla táctil y conexión 4G/Wi-Fi. La API productiva está en Render; mapas usan OpenStreetMap/OSRM.
+- 3.2. Requisitos de interacción
+Toque una vez botones y marcadores; escriba correo/contraseña con teclado. Conceda ubicación para origen/rutas y cámara para escaneo QR.
+
+*4. Instalación del Sistema*
+- 4.1. Pasos de instalación y configuración
+1. Copie el APK release proporcionado al teléfono.
+2. Autorice la instalación desde el administrador de archivos si Android lo solicita.
+3. Abra ParkRide.
+4. Cuando lo pida, permita Ubicación y Cámara.
+5. Mantenga Internet activo.
+- 4.2. Registro e inicio de sesión
+1. Abra ParkRide. 2. Escriba correo y contraseña. 3. Toque “Ingresar”. El registro solicita nombre, correo, contraseña y datos de perfil. El correo debe tener formato válido y la contraseña mínimo tres caracteres.
+- 4.3. Recuperación y restablecimiento de contraseña
+La versión actual no implementa recuperación automática por correo. Contacte soporte; no comparta la contraseña por chat.
+*Evidencia gráfica requerida:* incluir dos capturas: la solicitud de recuperación y el mensaje de éxito cuando esta función se implemente. No inventar capturas ni afirmar que el correo de recuperación está disponible.
+
+*5. Descripción de la Interfaz*
+- 5.1. Interfaz principal
+Inicio muestra el mapa, ubicación actual, créditos verdes, selector Camión/Van/Carpooling, destino y botón de solicitud.
+- 5.2. Elementos y navegación
+• Barra inferior: Inicio, Solicitar, Mis Viajes y Perfil.
+• Perfil: datos, vehículos, tarjeta ecológica, reportes y cerrar sesión.
+• Mapa: punto azul es ubicación; líneas fijas son rutas; línea morada es Carpooling activo.
+• Chofer de ruta: Mi Ruta, Mis Viajes y Mi Perfil.
+*Formato impreso requerido:* insertar una captura general de Inicio y marcar con flechas o recuadros rojos la barra superior, ubicación, mapa, selector de transporte, panel inferior, perfil y barra de navegación.
+
+*6. Procedimientos de Uso*
+- 6.1. Gestión de perfiles y roles
+En Perfil consulte datos y agregue/edite/elimine vehículos. Pasajero solicita viajes; chofer de ruta escanea QR de su ruta; supervisor administra rutas/reportes; conductor voluntario comparte una ruta temporal.
+- 6.2. Operaciones básicas
+Solicitar viaje: 1. Permita ubicación. 2. Elija destino. 3. Toque Camión, Van o Carpooling. 4. Toque Solicitar. El QR se muestra por 15 minutos.
+Escanear QR: el chofer abre Escaneo QR, concede cámara, apunta al código y confirma el resultado.
+Carpooling: 1. Registre vehículo en Perfil. 2. Inicio > Carpooling. 3. Elija dos avenidas y Terminal A/B. 4. Active ruta. Para revisar solicitudes, toque “Solicitudes” y use ✓ para aceptar o X para rechazar.
+*Altas, bajas, cambios y consultas:* vehículos: “Agregar vehículo” registra datos obligatorios; menú del vehículo permite editar o eliminar; la consulta se realiza en “Mis Vehículos”. Reportes: el usuario crea incidencias; la resolución está reservada a supervisor. No hay exportación PDF/Excel ni eliminación masiva en la versión actual.
+- 6.3. Reportes y procesos especiales
+Perfil > Reportar Incidencia permite enviar categoría y comentario. Los supervisores pueden resolverlas.
+*Capturas requeridas:* incluir formulario vacío, formulario con validación, modal/confirmación de eliminación de vehículo, QR generado, escáner, configuración Carpooling y bandeja de solicitudes.
+
+*7. Mensajes y Errores Comunes*
+- 7.1. Alertas
+“Permiso de cámara requerido”: abra Ajustes y conceda cámara. “Activa ubicación”: habilite GPS. “Selecciona al menos dos avenidas”: elija dos chips. “No se pudo trazar la ruta”: revise Internet.
+*Formato requerido:* insertar capturas de alertas rojas o amarillas que se produzcan en el teléfono real.
+- 7.2. Buenas prácticas
+No comparta contraseñas ni QR. Verifique datos antes de enviar. Cierre sesión al terminar. Reporte anomalías desde Perfil.
+
+*8. Mantenimiento del Sistema*
+- 8.1. Actualizaciones y respaldos
+Instale únicamente APK entregadas por el equipo. La información productiva reside en PostgreSQL de Render; los respaldos deben ser administrados por el responsable técnico.
+
+*9. Contacto o Soporte Técnico*
+- 9.1. Canales de ayuda
+Usar los datos institucionales del equipo/profesor definidos para la entrega. Incluir correo, horario y evidencia del error (captura, modelo de teléfono y hora).
+- *Tabla comparativa de roles:* Pasajero: solicita y consulta viajes; Chofer de ruta: consulta ruta asignada y escanea QR; Conductor voluntario: configura ruta temporal y acepta/rechaza solicitudes; Supervisor: consulta y resuelve reportes. Incluir captura de Perfil en la versión impresa.

@@ -1,0 +1,95 @@
+*Actividad Fundamental Número 3: Manual Técnico*
+*Proyecto ParkRide*
+
+- 1.1. Portada Institucional
+Insertar logotipos FIME/UANL/ParkRide. Completar equipo, matrículas, correos institucionales, profesor y fecha oficial.
+- 1.2. Índice
+Generar tabla de contenido automática y numeración de páginas al pasar a Word/PDF.
+
+*2. Introducción*
+- 2.1. Descripción y objetivos
+ParkRide es un cliente móvil Flutter que consume una API FastAPI para coordinar movilidad. Resuelve consulta de rutas, QR, incidencias, geolocalización y Carpooling. Este manual sirve a desarrolladores, soporte y administradores.
+- 2.2. Alcance técnico
+Incluye Android/iOS/web/desktop Flutter, FastAPI y bases SQLite/PostgreSQL. Fuera de alcance: notificaciones push, pagos, recuperación de contraseñas y operación garantizada de servicios externos.
+
+*3. Descripción General del Sistema*
+- 3.1. Propósito
+Digitalizar movilidad con rutas, ubicación, QR y asignación de viajes compartidos.
+- 3.2. Arquitectura general
+Cliente-servidor: Flutter/Dart usa HTTP JSON con FastAPI/Python. FastAPI usa SQLAlchemy sobre SQLite local o PostgreSQL Render. JWT Bearer protege API. OSRM calcula rutas; OpenStreetMap entrega mosaicos.
+- 3.3. Diagrama de componentes
+“Flutter → HTTPS API Render/FastAPI → SQLAlchemy → PostgreSQL; Flutter → GPS/geocoding; Flutter → OSRM/OpenStreetMap; Git → GitHub → Render deploy”.
+
+*4. Requisitos Técnicos / Entorno*
+- 4.1. Hardware
+Desarrollo: CPU 4 núcleos, 8 GB RAM, 20 GB libres. Teléfono: cámara, GPS e Internet.
+- 4.2. Software y red
+Windows 10/11 probado; Android Studio/SDK, Flutter SDK, Dart SDK, Python 3.10+ y Git. Puertos: 8000 local API; Render usa HTTPS 443. Visual Studio Code es IDE opcional; Android Studio administra emulador/SDK.
+- 4.3. Repositorio y compositores
+Repositorio GitHub: github.com/jordyruedas-a/app-parkride. Clonar con `git clone`, abrir carpeta en VS Code/Android Studio, ejecutar `flutter pub get`; backend con `pip install -r requirements.txt`.
+*Descripción y evidencia requerida:* desde el navegador buscar “Visual Studio Code”, abrir el sitio oficial, descargar el instalador de Windows, ejecutarlo, aceptar licencia, seleccionar acceso a terminal/contexto si procede y abrir el proyecto con “Open Folder”. Repetir el procedimiento con “Android Studio”: descargar desde el sitio oficial de Android Developers, instalar Android SDK, Platform Tools, emulador y aceptar licencias. Para Flutter/Dart, descargar Flutter SDK oficial, extraerlo, agregar `flutter\bin` al PATH, ejecutar `flutter doctor` e instalar los componentes indicados. Para Python, descargar desde python.org, marcar “Add Python to PATH”, instalar y verificar `python --version`. Incluir capturas: búsqueda, página oficial, instalador y terminal integrada.
+- 4.4. Lenguajes
+Dart/Flutter: UI, estado, mapas, permisos y QR. Python/FastAPI: API REST, JWT, validación Pydantic y persistencia SQLAlchemy. Kotlin/Gradle: empaquetado Android. SQL: esquema PostgreSQL.
+*Herramientas descargables y externas:* Git/GitHub Desktop opcional, Render, PostgreSQL Render, Supabase legado, navegador, Android SDK/Gradle, Java 17 incluido por Android Studio, VS Code y extensiones Dart/Flutter/Python. Render, GitHub, OSRM, OpenStreetMap y Supabase son servicios externos; no se instalan como ejecutables del proyecto.
+- 4.5. Base de datos
+PostgreSQL Render producción y SQLite desarrollo. Tablas: users, routes, route_stops, vehicles, trips, qr_tokens, reports y carpool_requests.
+
+*5. Diseño del Sistema*
+- 5.1. UML
+Casos: autenticarse, solicitar viaje, escanear QR, reportar, activar ruta voluntaria y decidir solicitudes. Relaciones: User tiene rutas/solicitudes; Route tiene paradas/vehículo; Trip enlaza pasajero-ruta.
+- 5.2. Estructura de carpetas
+`lib/` Flutter: `screens/`, `services/`, `widgets/`, `models/`. `backend/app/`: main.py, models.py, schemas.py, auth.py, config.py, database.py. `backend/database/schema.sql`: bootstrap. `android/`, `ios/`, `web/`, `linux/`, `macos/`: plataformas. `test/` y `backend/tests/`: pruebas. `.txt`: documentación/entregables. `.apk`: artefactos generados.
+*Tipos de archivo:* `.dart` interfaz/lógica; `.py` servidor; `.sql` DDL; `.yaml` manifiestos Flutter; `.json` configuración/lock; `.xml` Android; `.plist` iOS; `.kts` Gradle Kotlin; `.txt` manuales; `.apk` instaladores; `.env` secretos locales no versionados.
+- 5.3. Flujo de datos
+Pantalla → ParkRideState → ParkRideApiService → endpoint FastAPI → Pydantic → SQLAlchemy → BD → JSON → estado/UI. RoutingService consume OSRM y CampusFlutterMap dibuja polilíneas.
+- 5.4. Backend
+`main.py` crea FastAPI/CORS y endpoints auth, users, routes, trips, QR, reports y carpool. `auth.py` hashea bcrypt y emite JWT. `models.py` define ORM; `schemas.py` contratos; `database.py` crea tablas y añade columnas compatibles.
+*Variables principales verificables:* `DATABASE_URL`, `JWT_SECRET`, `JWT_ALGORITHM`, `QR_VALIDITY_MINUTES`, `CORS_ORIGINS` en `config.py`; `engine`, `SessionLocal`, `Base` en `database.py`; `app` en `main.py`; modelos `User`, `Route`, `Vehicle`, `RouteStop`, `Trip`, `QRToken`, `Report`, `CarpoolRequest`. Las variables locales de cada función se documentan mediante sus nombres en el código fuente y no deben alterarse desde el manual.
+- 5.5. Frontend
+Flutter Material responsivo. `ParkrideDashboard.dart` concentra Inicio, GPS, transporte y Carpooling; `CodigoQRScreen.dart` controla MobileScanner y permiso; `ParkrideProfileSettings.dart` vehículos/perfil; `campus_flutter_map.dart` mapa.
+*Variables/estado relevantes:* `ParkRideState.currentUser`, `routes`, `currentTrip`, `tripHistory`, `userCurrentLocation`, `totalCo2SavingsKg`; Dashboard: `selectedOrigen`, `selectedDestino`, `selectedOption`, `_mapCenter`, `_transportFilter`, `_originLabel`; API: `baseUrl`, `_accessToken`; GPS: `fallbackLocation`; mapa: `initialCenter`, `routePoints`, `routes`, `transportFilter`, `volunteerRoute`.
+
+*6. Base de Datos*
+- 6.1. DER
+users 1:N routes (driver), trips (passenger/driver), reports y carpool_requests. routes 1:N route_stops y 1:1 vehicle. trips 1:N qr_tokens.
+- 6.2. Diccionario resumido
+users: id UUID PK, email único, password_hash, name, role, perfil, flags/JSON carpool. routes: id PK, nombre/origen/destino, hora, tipo/color, driver_id FK, vehicle_id FK, paradas retorno. vehicles: id PK, model/plate/color/tipo. trips: ids FK, estado, QR. carpool_requests: id PK, passenger_id FK, volunteer_id FK, status, origin, timestamps.
+- 6.3. Relaciones
+Un usuario puede tener múltiples viajes/reportes/solicitudes; una ruta tiene varias paradas; una solicitud enlaza un pasajero y un voluntario.
+
+*7. Instalación y Configuración (Instalación de todas las herramientas con imágenes desde búsqueda de navegador*
+- 7.1. Desarrollo
+`flutter pub get`; `cd backend`; crear venv; `pip install -r requirements.txt`; definir `.env`; `python seed_demo.py`; `uvicorn app.main:app --reload`; `flutter run --dart-define=PARKRIDE_API_URL=http://10.0.2.2:8000`.
+*Pasos desde computadora nueva:* 1. Instalar Git, VS Code, Android Studio, Flutter/Dart y Python según 4.3. 2. Abrir terminal. 3. Clonar repositorio. 4. Abrir la carpeta. 5. Ejecutar comandos anteriores. 6. Crear emulador o conectar teléfono con depuración USB. 7. Ejecutar pruebas antes de compilar.
+- 7.2. Dependencias
+Flutter: cupertino_icons, flutter_map, latlong2, geolocator, geocoding, permission_handler, supabase_flutter, provider, shared_preferences, http, google_polyline_algorithm, mobile_scanner, qr_flutter, uuid, flutter_test, flutter_lints.
+Python: fastapi, uvicorn, pydantic, email-validator, sqlalchemy, aiosqlite, python-dotenv, python-jose, passlib, bcrypt, websockets, httpx, pytest, psycopg2-binary.
+- 7.3. Variables de entorno
+`DATABASE_URL=postgresql://usuario:clave@host/db`; `JWT_SECRET=valor-largo-secreto`; `JWT_ALGORITHM=HS256`; `QR_VALIDITY_MINUTES=15`; `CORS_ORIGINS=https://app.example`. En Flutter: `PARKRIDE_API_URL=https://parkride-api.onrender.com`. *Nunca versionar secretos reales.*
+- 7.4. APIs externas
+OSRM: `https://router.project-osrm.org/route/v1/driving`; OpenStreetMap tiles; Render para API/Postgres; GitHub para código; Supabase está declarado/inicializado legado, pero FastAPI es el backend operativo.
+
+*8. Mantenimiento y Actualizaciones*
+- 8.1. Migraciones
+Respaldar PostgreSQL antes de desplegar. `initialize_database()` aplica adiciones compatibles; probar seed idempotente.
+- 8.2. Flujo Git
+Crear rama, probar, `git add`, commit, push, revisión y merge a main. Render redespliega main.
+- 8.3. Soporte
+Menor: reiniciar app. Intermedia: verificar API/red/credenciales. Crítica: restaurar BD y revisar logs Render. KPI: disponibilidad, MTTR, MTBF y tasa de errores.
+
+*9. Seguridad y Respaldo*
+- 9.1. Backups
+Programar exportación diaria PostgreSQL y conservar copias cifradas fuera del servicio.
+- 9.2. Recuperación
+Pausar escrituras, identificar último backup válido, restaurar en instancia aislada, validar tablas y cambiar secretos si hubo exposición.
+
+*10. Anexos*
+- 10.1. Conclusión
+ParkRide integra movilidad, GIS y QR en una solución móvil extensible.
+- 10.2. Referencias
+Flutter, Dart, FastAPI, SQLAlchemy, PostgreSQL, Render, GitHub, OSRM, OpenStreetMap, Android y Apple: documentación oficial.
+- 10.3. APIs externas
+REST FastAPI: `/auth/login`, `/users/{id}`, `/routes`, `/trips`, `/qr/validate`, `/reports`, `/carpool/requests`; OSRM route API.
+- 10.4. Evidencia gráfica
+Insertar capturas reales de login, Inicio, mapa, Perfil, QR, Carpooling y bandeja de solicitudes en la versión impresa.
+También incluir capturas de instalación de herramientas, terminal, Render (deploy/logs), GitHub (repositorio/commit), base de datos Render y permisos Android. Las imágenes deben obtenerse del proyecto o servicios reales y llevar pie de figura.

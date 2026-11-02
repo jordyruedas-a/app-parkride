@@ -53,17 +53,24 @@ def create_accounts(client: TestClient) -> dict:
         "supervisor": register(client, "supervisor@example.com", "supervisor"),
         "driver_one": register(client, "driver-one@example.com", "route_driver"),
         "driver_two": register(client, "driver-two@example.com", "route_driver"),
+        "driver_three": register(client, "driver-three@example.com", "route_driver"),
         "passenger": register(client, "passenger@example.com", "passenger"),
     }
     accounts["headers"] = {
         name: login_headers(client, f"{name.replace('_', '-')}@example.com")
-        for name in ("driver_one", "driver_two", "passenger")
+        for name in ("driver_one", "driver_two", "driver_three", "passenger")
     }
     accounts["headers"]["supervisor"] = login_headers(client, "supervisor@example.com")
     return accounts
 
 
-def create_route(client: TestClient, supervisor_headers: dict, driver_id: str | None = None, name: str = "North") -> dict:
+def create_route(
+    client: TestClient,
+    supervisor_headers: dict,
+    driver_id: str | None = None,
+    name: str = "North",
+    transport_type: str = "bus",
+) -> dict:
     response = client.post(
         "/routes",
         headers=supervisor_headers,
@@ -72,7 +79,14 @@ def create_route(client: TestClient, supervisor_headers: dict, driver_id: str | 
             "origin": "Campus",
             "destination": "Plant",
             "departure_time": "08:00:00",
+            "transport_type": transport_type,
             "driver_id": driver_id,
+            "vehicle": {
+                "model": f"Test {transport_type}",
+                "plate": f"{name[:8].upper()}-{transport_type.upper()}",
+                "color": "White",
+                "transport_type": transport_type,
+            },
             "stops": [
                 {"stop_name": "Gate A", "latitude": 25.67, "longitude": -100.31, "stop_order": 0},
                 {"stop_name": "Gate B", "latitude": 25.68, "longitude": -100.30, "stop_order": 1},
@@ -171,7 +185,7 @@ def test_demo_seed_creates_ten_idempotent_routes_and_demo_login(client: TestClie
     assert login.status_code == 200
 
 
-def test_qr_validation_is_single_use_and_route_bound(client: TestClient):
+def test_qr_validation_is_single_use_and_vehicle_type_bound(client: TestClient):
     accounts = create_accounts(client)
     route_one = create_route(
         client, accounts["headers"]["supervisor"], accounts["driver_one"]["id"], "North"
@@ -189,14 +203,9 @@ def test_qr_validation_is_single_use_and_route_bound(client: TestClient):
     token = created.json()["token"]
     expires_at = datetime.fromisoformat(created.json()["expires_at"])
     assert 14 * 60 <= (expires_at - datetime.utcnow()).total_seconds() <= 15 * 60
-    assert client.post(
-        "/qr/validate",
-        headers=accounts["headers"]["driver_two"],
-        json={"token": token},
-    ).status_code == 403
     accepted = client.post(
         "/qr/validate",
-        headers=accounts["headers"]["driver_one"],
+        headers=accounts["headers"]["driver_two"],
         json={"token": token},
     )
     assert accepted.status_code == 200
@@ -206,6 +215,25 @@ def test_qr_validation_is_single_use_and_route_bound(client: TestClient):
         headers=accounts["headers"]["driver_one"],
         json={"token": token},
     ).status_code == 409
+    van_route = create_route(
+        client,
+        accounts["headers"]["supervisor"],
+        accounts["driver_three"]["id"],
+        "Van North",
+        "van",
+    )
+    van_ticket = client.post(
+        "/trips",
+        headers=accounts["headers"]["passenger"],
+        json={"route_id": van_route["id"], "transport_type": "van"},
+    ).json()["token"]
+    rejected = client.post(
+        "/qr/validate",
+        headers=accounts["headers"]["driver_one"],
+        json={"token": van_ticket},
+    )
+    assert rejected.status_code == 403
+    assert "Van" in rejected.json()["detail"]
     expired = client.post(
         "/trips",
         headers=accounts["headers"]["passenger"],

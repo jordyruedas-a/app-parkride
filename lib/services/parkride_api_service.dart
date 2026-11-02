@@ -109,12 +109,31 @@ class ParkRideApiService {
     );
   }
 
+  Future<List<Map<String, dynamic>>> getAvailableVolunteers() async {
+    final response =
+        await _request('GET', '/carpool/volunteers', authenticated: true);
+    return _decodeList(response);
+  }
+
+  Future<void> requestCarpool({
+    required String volunteerId,
+    required String origin,
+  }) async {
+    await _request(
+      'POST',
+      '/carpool/requests',
+      authenticated: true,
+      body: {'volunteer_id': volunteerId, 'origin': origin},
+    );
+  }
+
   Future<QrTicket> createTrip({
     required String routeId,
     required String transportType,
     required String origin,
     required String destination,
     required int creditCost,
+    required String vehicleType,
   }) async {
     final response = await _request(
       'POST',
@@ -126,6 +145,7 @@ class ParkRideApiService {
         'origin': origin,
         'destination': destination,
         'credit_cost': creditCost,
+        'vehicle_type': vehicleType,
       },
     );
     final decoded = _decodeObject(response);

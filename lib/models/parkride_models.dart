@@ -17,6 +17,7 @@ class UserModel {
   final List<Map<String, dynamic>> carpoolVehicles;
   final List<String> carpoolAvenues;
   final bool isAvailableForCarpooling;
+  final String volunteerStatus;
   final String? carpoolDestination;
   final List<LatLng> carpoolRoute;
 
@@ -37,6 +38,7 @@ class UserModel {
     this.carpoolVehicles = const [],
     this.carpoolAvenues = const [],
     this.isAvailableForCarpooling = false,
+    this.volunteerStatus = 'offline',
     this.carpoolDestination,
     this.carpoolRoute = const [],
   })  : departamento = (departamento != null && departamento.trim().isNotEmpty)
@@ -76,6 +78,7 @@ class UserModel {
           .map((item) => item.toString())
           .toList(),
       isAvailableForCarpooling: map['is_available_for_carpooling'] == true,
+      volunteerStatus: map['volunteer_status']?.toString() ?? 'offline',
       carpoolDestination: map['carpool_destination']?.toString(),
       carpoolRoute: (map['carpool_route'] as List? ?? const []).map((point) {
         final item = Map<String, dynamic>.from(point as Map);
@@ -105,6 +108,7 @@ class UserModel {
       'carpool_vehicles': carpoolVehicles,
       'carpool_avenues': carpoolAvenues,
       'is_available_for_carpooling': isAvailableForCarpooling,
+      'volunteer_status': volunteerStatus,
       'carpool_destination': carpoolDestination,
       'carpool_route': carpoolRoute
           .map((point) =>
@@ -130,6 +134,7 @@ class UserModel {
     List<Map<String, dynamic>>? carpoolVehicles,
     List<String>? carpoolAvenues,
     bool? isAvailableForCarpooling,
+    String? volunteerStatus,
     String? carpoolDestination,
     List<LatLng>? carpoolRoute,
   }) {
@@ -151,6 +156,7 @@ class UserModel {
       carpoolAvenues: carpoolAvenues ?? this.carpoolAvenues,
       isAvailableForCarpooling:
           isAvailableForCarpooling ?? this.isAvailableForCarpooling,
+      volunteerStatus: volunteerStatus ?? this.volunteerStatus,
       carpoolDestination: carpoolDestination ?? this.carpoolDestination,
       carpoolRoute: carpoolRoute ?? this.carpoolRoute,
     );
