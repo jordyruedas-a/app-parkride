@@ -6,15 +6,27 @@ import 'package:parkride/screens/ViajeEnCurso.dart';
 import 'package:parkride/services/parkride_state.dart';
 
 void main() {
-  testWidgets('ParkRide app loads the corporate login screen', (WidgetTester tester) async {
+  testWidgets('ParkRide app loads the corporate login screen',
+      (WidgetTester tester) async {
     await tester.pumpWidget(const ParkRideApp());
 
     expect(find.text('Iniciar Sesión'), findsOneWidget);
     expect(find.text('Accede con tu cuenta corporativa'), findsOneWidget);
     expect(find.text('Ingresar'), findsOneWidget);
+    expect(find.text('¿Olvidaste tu contraseña?'), findsOneWidget);
+
+    await tester.tap(find.text('¿Olvidaste tu contraseña?'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('8126433544'), findsOneWidget);
+    expect(
+      find.textContaining('favor contacta al servicio técnico'),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('ViajeEnCurso stays within small screen widths', (WidgetTester tester) async {
+  testWidgets('ViajeEnCurso stays within small screen widths',
+      (WidgetTester tester) async {
     tester.view.physicalSize = const Size(360, 800);
     addTearDown(() => tester.view.resetPhysicalSize());
 

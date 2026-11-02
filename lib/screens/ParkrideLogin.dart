@@ -82,6 +82,31 @@ class _ParkrideLoginState extends State<ParkrideLogin>
     }
   }
 
+  Future<void> _showPasswordSupport() {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.support_agent_rounded, color: Color(0xFF22C55E)),
+            SizedBox(width: 10),
+            Text('¿Olvidaste tu contraseña?'),
+          ],
+        ),
+        content: const Text(
+          'Por favor contacta al servicio técnico para recuperar el acceso.\n\n'
+          'Teléfono: 8126433544',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -261,7 +286,14 @@ class _ParkrideLoginState extends State<ParkrideLogin>
                                 horizontal: 16, vertical: 14),
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _showPasswordSupport,
+                            child: const Text('¿Olvidaste tu contraseña?'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         SizedBox(
                           width: double.infinity,
                           height: 52,

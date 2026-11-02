@@ -1,0 +1,167 @@
+*Diccionario de Datos - ParkRide*
+
+Convenciones: PK = llave primaria; FK = llave foránea; NN = no permite nulo; N = permite nulo; UQ = valor único.
+Los UUID de PK tienen como valor predeterminado gen_random_uuid(). Las marcas de tiempo
+created_at y updated_at indicadas como CURRENT_TIMESTAMP se llenan automáticamente.
+
+*Tabla users*
+| Campo | Tipo | Llave | Nulo | Restricciones/propósito |
+| id | UUID | PK | NN | Identificador del usuario; generado por BD. |
+| email | VARCHAR(255) | UQ | NN | Correo para autenticación. |
+| password_hash | VARCHAR(255) | - | NN | Contraseña cifrada con bcrypt. |
+| name | VARCHAR(255) | - | NN | Nombre visible. |
+| role | VARCHAR(50) | - | NN | passenger, route_driver o supervisor. |
+| company | VARCHAR(255) | - | N | Empresa. |
+| department | VARCHAR(255) | - | N | Departamento. |
+| employee_number | VARCHAR(255) | - | N | Número de empleado/nómina. |
+| phone | VARCHAR(50) | - | N | Teléfono. |
+| shift | VARCHAR(50) | - | N | Turno. |
+| is_volunteer_driver | BOOLEAN | - | NN | Indica perfil de conductor voluntario. |
+| carpool_avenues | JSON | - | NN | Lista de avenidas seleccionadas. |
+| carpool_vehicles | JSON | - | NN | Vehículos personales registrados. |
+| is_available_for_carpooling | BOOLEAN | - | NN | Disponibilidad actual para carpool. |
+| volunteer_status | VARCHAR(30) | - | NN | offline o searching_passengers. |
+| carpool_destination | VARCHAR(255) | - | N | Terminal de destino del voluntario. |
+| carpool_route | JSON | - | NN | Coordenadas de la ruta OSRM. |
+| created_at | TIMESTAMP | - | NN | Fecha de creación. |
+| updated_at | TIMESTAMP | - | NN | Fecha de última actualización. |
+| is_active | BOOLEAN | - | NN | Cuenta activa/inactiva. |
+
+Valores predeterminados y validaciones: is_volunteer_driver=FALSE, carpool_avenues=[],
+carpool_vehicles=[], is_available_for_carpooling=FALSE, volunteer_status='offline',
+carpool_route=[], created_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP e
+is_active=TRUE. role sólo permite passenger, route_driver o supervisor. volunteer_status
+sólo permite offline o searching_passengers.
+
+*Tabla vehicles*
+| Campo | Tipo | Llave | Nulo | Restricciones/propósito |
+| id | UUID | PK | NN | Identificador del vehículo. |
+| model | VARCHAR(255) | - | NN | Marca/modelo de unidad. |
+| plate | VARCHAR(50) | UQ | NN | Placa o matrícula. |
+| color | VARCHAR(50) | - | NN | Color. |
+| transport_type | VARCHAR(20) | - | NN | bus o van. |
+| is_active | BOOLEAN | - | NN | Unidad operativa. |
+| created_at | TIMESTAMP | - | NN | Fecha de registro. |
+
+Valores predeterminados y validaciones: is_active=TRUE y created_at=CURRENT_TIMESTAMP.
+transport_type sólo permite bus o van.
+
+*Tabla routes*
+| Campo | Tipo | Llave | Nulo | Restricciones/propósito |
+| id | UUID | PK | NN | Identificador de ruta. |
+| name | VARCHAR(255) | - | NN | Nombre de ruta. |
+| origin | VARCHAR(255) | - | NN | Punto de origen. |
+| destination | VARCHAR(255) | - | NN | Punto destino. |
+| departure_time | TIME | - | NN | Hora de salida. |
+| transport_type | VARCHAR(20) | - | NN | bus o van. |
+| color | VARCHAR(7) | - | NN | Color hexadecimal. |
+| driver_id | UUID | FK→users.id, UQ | N | Chofer de ruta asignado. |
+| vehicle_id | UUID | FK→vehicles.id, UQ | N | Vehículo asignado. |
+| is_active | BOOLEAN | - | NN | Ruta activa. |
+| is_available | BOOLEAN | - | NN | Disponible para solicitudes. |
+| return_stops | JSON | - | NN | Paradas de regreso. |
+| return_color | VARCHAR(7) | - | NN | Color de regreso. |
+| created_at | TIMESTAMP | - | NN | Fecha de creación. |
+
+Valores predeterminados y validaciones: is_active=TRUE, is_available=TRUE,
+return_stops=[], return_color='#F97316' y created_at=CURRENT_TIMESTAMP.
+transport_type sólo permite bus o van. color debe coincidir con #RRGGBB hexadecimal.
+driver_id y vehicle_id son únicos: una persona o una unidad sólo pueden estar asignadas a
+una ruta.
+
+*Tabla route_stops*
+| Campo | Tipo | Llave | Nulo | Restricciones/propósito |
+| id | UUID | PK | NN | Identificador de parada. |
+| route_id | UUID | FK→routes.id | NN | Ruta dueña; borrado en cascada. |
+| stop_name | VARCHAR(255) | - | NN | Nombre de parada. |
+| latitude | DOUBLE PRECISION | - | NN | Latitud. |
+| longitude | DOUBLE PRECISION | - | NN | Longitud. |
+| stop_order | INTEGER | UQ(route_id,stop_order) | NN | Orden dentro de ruta. |
+
+Restricciones: la combinación route_id + stop_order es única; al borrar la ruta se borran
+sus paradas (ON DELETE CASCADE).
+
+*Tabla trips*
+| Campo | Tipo | Llave | Nulo | Restricciones/propósito |
+| id | UUID | PK | NN | Identificador del viaje. |
+| passenger_id | UUID | FK→users.id | NN | Pasajero solicitante. |
+| driver_id | UUID | FK→users.id | N | Chofer que validó/completó. |
+| route_id | UUID | FK→routes.id | NN | Ruta seleccionada originalmente. |
+| transport_type | VARCHAR(50) | - | NN | shuttle, van o carpool. |
+| vehicle_type | VARCHAR(20) | - | NN | camion o van para validación QR. |
+| status | VARCHAR(30) | - | NN | Estado de viaje. |
+| origin | VARCHAR(255) | - | N | Origen declarado. |
+| destination | VARCHAR(255) | - | N | Destino declarado. |
+| credit_cost | INTEGER | - | NN | Créditos; valor >= 0. |
+| qr_token | UUID | - | N | Token QR actual. |
+| qr_expires_at | TIMESTAMP | - | N | Expiración del QR. |
+| used_at | TIMESTAMP | - | N | Momento de uso. |
+| created_at | TIMESTAMP | - | NN | Creación. |
+| completed_at | TIMESTAMP | - | N | Finalización. |
+
+Valores predeterminados y validaciones: vehicle_type='camion', status='requested',
+credit_cost=0 y created_at=CURRENT_TIMESTAMP. transport_type sólo permite shuttle, van o
+carpool; vehicle_type sólo permite camion o van; credit_cost debe ser mayor o igual a 0.
+
+*Tabla qr_tokens*
+| Campo | Tipo | Llave | Nulo | Restricciones/propósito |
+| id | UUID | PK | NN | Identificador interno. |
+| trip_id | UUID | FK→trips.id | NN | Viaje dueño; borrado en cascada. |
+| token | UUID | UQ | NN | Valor codificado en QR. |
+| issued_at | TIMESTAMP | - | NN | Emisión. |
+| expires_at | TIMESTAMP | - | NN | Expiración. |
+| used | BOOLEAN | - | NN | Uso único. |
+| used_by_driver_id | UUID | FK→users.id | N | Chofer que lo consumió. |
+
+Valores predeterminados: issued_at=CURRENT_TIMESTAMP y used=FALSE. La eliminación de un
+viaje borra sus QR asociados (ON DELETE CASCADE).
+
+*Tabla carpool_requests*
+| Campo | Tipo | Llave | Nulo | Restricciones/propósito |
+| id | UUID | PK | NN | Identificador de solicitud. |
+| passenger_id | UUID | FK→users.id | NN | Pasajero solicitante. |
+| volunteer_id | UUID | FK→users.id | NN | Conductor voluntario. |
+| status | VARCHAR(20) | - | NN | pending, accepted o rejected. |
+| origin | VARCHAR(255) | - | N | Origen del pasajero. |
+| created_at | TIMESTAMP | - | NN | Fecha de solicitud. |
+| decided_at | TIMESTAMP | - | N | Fecha de decisión. |
+
+Valores predeterminados y validaciones: status='pending' y created_at=CURRENT_TIMESTAMP.
+status sólo permite pending, accepted o rejected.
+
+*Tabla reports*
+| Campo | Tipo | Llave | Nulo | Restricciones/propósito |
+| id | UUID | PK | NN | Identificador de reporte. |
+| reporter_id | UUID | FK→users.id | NN | Usuario que reporta. |
+| reporter_role | VARCHAR(50) | - | NN | Rol al crear el reporte. |
+| category | VARCHAR(100) | - | NN | Categoría. |
+| comment | TEXT | - | NN | Descripción de incidencia. |
+| created_at | TIMESTAMP | - | NN | Fecha de creación. |
+| status | VARCHAR(30) | - | NN | open o resolved. |
+| resolved_by_id | UUID | FK→users.id | N | Supervisor que resolvió. |
+| resolved_at | TIMESTAMP | - | N | Fecha de resolución. |
+
+Valores predeterminados y validaciones: created_at=CURRENT_TIMESTAMP y status='open'.
+reporter_role sólo permite passenger, route_driver o supervisor; status sólo permite open
+o resolved.
+
+*Relaciones*
+- users.id → routes.driver_id: un usuario conductor puede tener una ruta; la asignación es única.
+- vehicles.id → routes.vehicle_id: un vehículo puede estar asignado a una sola ruta.
+- routes.id → route_stops.route_id: una ruta tiene cero o más paradas.
+- users.id → trips.passenger_id y trips.driver_id: usuarios participantes de un viaje.
+- routes.id → trips.route_id: cada viaje se origina en una ruta.
+- trips.id → qr_tokens.trip_id: un viaje puede tener tokens QR; borrar el viaje borra sus tokens.
+- users.id → qr_tokens.used_by_driver_id: identifica al conductor que consumió el QR.
+- users.id → carpool_requests.passenger_id y volunteer_id: enlaza pasajero y conductor voluntario.
+- users.id → reports.reporter_id y resolved_by_id: enlaza autor y supervisor que resuelve.
+
+*Índices secundarios*
+- users(email), routes(driver_id, is_active), trips(status), trips(passenger_id),
+  qr_tokens(token), reports(reporter_id) y reports(status).
+
+*Estructuras JSON*
+- users.carpool_avenues: arreglo de avenidas seleccionadas por el conductor.
+- users.carpool_vehicles: arreglo de vehículos personales del conductor.
+- users.carpool_route: arreglo de coordenadas/segmentos de la ruta calculada por OSRM.
+- routes.return_stops: arreglo de paradas para el recorrido de regreso.
